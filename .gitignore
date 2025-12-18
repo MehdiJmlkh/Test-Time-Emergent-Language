@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.pth
+
+# TensorBoard event files
+*.tfevents.*
+
+celeba/
+runs/
+experiments
+configs
+*.html
