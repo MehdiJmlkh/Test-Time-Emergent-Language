@@ -16,6 +16,8 @@ from utils import pairwise_cosine_similarity
 from torchvision import transforms
 from PIL import Image
 import numpy as np
+import random
+
 
 def train_agents_baseline_reinforce(
     agent_a: AbstractAgent, 
@@ -285,7 +287,7 @@ def train_self_play(
             img_repr = agent.forward_image_encoder(imgs)
             text_generation_result = agent.forward_text_generation(
                 imgs, 
-                message_length=length_message, 
+                message_length=random.choice(length_message), 
                 freeze_codebook=False, 
                 mode='discrete', 
                 sampling_temperature=sampling_temperature
@@ -341,7 +343,7 @@ def train_self_play(
                 img_repr = agent.forward_image_encoder(imgs)
                 text_generation_result = agent.forward_text_generation(
                     imgs, 
-                    message_length=length_message, 
+                    message_length=length_message[-1], 
                     freeze_codebook=True, 
                     mode='discrete', 
                     sampling_temperature=sampling_temperature
@@ -487,7 +489,7 @@ def train_mutual_play(
             # ===== Agent A (Sender): Generate messages =====
             sender_result = agent_a.forward_text_generation(
                 imgs, 
-                message_length=message_length, 
+                message_length=random.choice(message_length), 
                 freeze_codebook=freeze_codebook, 
                 mode='discrete', 
                 sampling_temperature=sampling_temperature
@@ -600,7 +602,7 @@ def train_mutual_play(
                 # Generate messages and compute similarities
                 sender_result = agent_a.forward_text_generation(
                     imgs, 
-                    message_length=message_length, 
+                    message_length=message_length[-1], 
                     mode='discrete',
                     freeze_codebook=freeze_codebook, 
                     sampling_temperature=sampling_temperature
