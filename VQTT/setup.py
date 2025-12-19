@@ -20,6 +20,8 @@ def generate_configs(csv_configs):
                         f.write(f"{key} = False\n")
                     elif value.lower() == "none":
                         f.write(f"{key} = None\n")
+                    elif "[" in value:
+                        f.write(f"{key} = {value.replace(' ', ', ')}\n")
                     else:
                         f.write(f'{key} = "{value}"\n')
 
