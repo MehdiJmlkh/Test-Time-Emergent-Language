@@ -20,7 +20,6 @@ number_of_candidates = 100
 commitment_weight = 0.25
 sampling_temperature = 1e-5
 freeze_codebook = True
-freeze_agent_b = False
 decay = 0.99
 entropy_regularization_factor = 0
 contrastive_loss_temperature = 0.01
