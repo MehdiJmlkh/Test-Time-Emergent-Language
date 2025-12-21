@@ -27,7 +27,6 @@ entropy_regularization_factor = 0
 contrastive_loss_temperature = 0.01
 seed = 1
 sim = "cosine"
-baseline_a = False
 pretrained_checkpoint_a = "20251220_1854_bs32_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1"
 pretrained_checkpoint_b = None
 dialogued_checkpoint = pretrained_checkpoint_a
