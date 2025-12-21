@@ -15,7 +15,6 @@ num_iterations = 5
 best_of_n = 1
 learning_rate_tt = 1e-5
 sampling_temperature_tt = 1e-5
-freeze_object_encoder = False
 number_of_candidates = 100
 commitment_weight = 0.25
 sampling_temperature = 1e-5
