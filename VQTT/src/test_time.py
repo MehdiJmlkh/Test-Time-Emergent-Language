@@ -18,6 +18,7 @@ def test_time_scaling(agent, sample, message_length=4, n=10, sampling_temperatur
     # Try different message lengths and return the one with highest similarity to image
     best_similarity = -float('inf')
     best_message = None
+    best_discretized = None
     
     for _ in range(n):
         sender_result = agent_clone.forward_text_generation(
@@ -36,8 +37,10 @@ def test_time_scaling(agent, sample, message_length=4, n=10, sampling_temperatur
         if similarity > best_similarity:
             best_similarity = similarity
             best_message = sender_result['indices']
+            best_discretized = sender_result['discretized'].detach()
     
-    return best_message
+    del agent_clone
+    return best_message, best_discretized
 
 
 
@@ -95,4 +98,4 @@ def test_time_adaptation(agent, sample, num_iterations=100, lr=1e-4, sampling_te
         sampling_temperature=sampling_temperature
     )
 
-    return sender_result['indices']
+    return sender_result['indices'], sender_result['discretized'].detach()
