@@ -1,6 +1,5 @@
 dataset = 'shape'
 representation_dim = 1024
-sim = "cosine"
 vocab_size = 10
 message_length = [1, 2, 3, 4]
 num_pretrain_epochs = 50
@@ -10,6 +9,7 @@ learning_rate_phase1 = 1e-4
 learning_rate_phase2_a = 1e-5
 learning_rate_phase2_b = 1e-5
 agent_a_training_mode = 'frozen'
+
 dataset_tt = 'two_shape'
 message_length_tt = 4
 test_time_mode = 'scaling'
@@ -17,6 +17,7 @@ num_iterations = 0
 learning_rate_tt = 1e-5
 sampling_temperature_tt = 1e-5
 best_of_n = 10
+
 number_of_candidates = 100
 commitment_weight = 0.25
 sampling_temperature = 1e-5
@@ -27,4 +28,5 @@ contrastive_loss_temperature = 0.01
 pretrained_checkpoint_a = "20251220_1854_bs32_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1"
 pretrained_checkpoint_b = None
 dialogued_checkpoint = pretrained_checkpoint_a
+sim = "cosine"
 seed = 1
