@@ -102,6 +102,15 @@ class CelebA(Dataset):
         
         return self.features[idx], idx
 
+class MNIST(Dataset):
+    def __init__(self, mode='train', path="/home/shared/data/MNIST1"):
+        self.data = torch.load(path + f"/{mode}.pt")        
+        
+    def __len__(self):
+        return len(self.data["images"])
+    
+    def __getitem__(self, idx): 
+        return self.data["images"][idx].permute(1, 2, 0), self.data["labels"][idx]
 
 def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
     def save_dataset(dataset, path):
