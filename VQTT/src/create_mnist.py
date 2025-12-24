@@ -58,7 +58,7 @@ class TwoDigitOpposite(Dataset):
 
         # Combine images by adding (keep same shape)
         two_digit_img = img1 + img2
-        two_digit_label = (label1, label2)
+        two_digit_label = (label1, label2) if pos1 == "left" else (label2, label1)
 
         return two_digit_img, two_digit_label
 
