@@ -6,7 +6,6 @@ import torch
 import shapeworld
 from PIL import Image
 import math
-import datasets
 import os
 import pickle
 
@@ -122,9 +121,9 @@ def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
             pickle.dump(data, f)
 
 
-    train_dataset = datasets.ShapeWorld(n=math.floor(n * train_split), mode='train')
-    val_dataset = datasets.ShapeWorld(n=math.floor(n * val_split), mode='validation')
-    test_dataset = datasets.ShapeWorld(n=math.floor(n * test_split), mode='test')
+    train_dataset = ShapeWorld(n=math.floor(n * train_split), mode='train')
+    val_dataset = ShapeWorld(n=math.floor(n * val_split), mode='validation')
+    test_dataset = ShapeWorld(n=math.floor(n * test_split), mode='test')
 
 
     save_dataset(train_dataset, "/home/shared/data/shape/train")
