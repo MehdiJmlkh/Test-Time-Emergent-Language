@@ -44,3 +44,11 @@ class Dino(nn.Module):
         x = self.head(x)
         # x = self.tanh(x)
         return x
+
+
+class IdentityEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return x
