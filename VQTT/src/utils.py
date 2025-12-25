@@ -53,13 +53,16 @@ def pairwise_cosine_similarity(x1, x2):
     return similarity_matrix
 
 
-def evaluate_self_communicate(agent, test_dataset, device, message_length, number_of_candidates=100):
+def evaluate_self_communicate(agent, test_dataset, device, message_length, number_of_candidates=100, batch_sampler=None):
     """Evaluate agent's ability to match images with their emergent language representations"""
     total_correct_matches = 0
     total_samples = 0
 
     # Create test data loader
-    test_loader = DataLoader(test_dataset, batch_size=number_of_candidates, shuffle=False, num_workers=0)
+    if batch_sampler == None:
+        test_loader = DataLoader(test_dataset, batch_size=number_of_candidates, shuffle=False, num_workers=0)
+    else:
+        test_loader = DataLoader(test_dataset, batch_sampler=batch_sampler)
 
     # Evaluate matching accuracy
     for images, true_labels in tqdm(test_loader, desc="Evaluating image-text matching"):
@@ -95,7 +98,7 @@ def evaluate_self_communicate(agent, test_dataset, device, message_length, numbe
     return matching_accuracy
 
 
-def evaluate_cross_communicate(agent_a, agent_b, test_dataset, device, message_length, batch_size=100, num_workers=0):
+def evaluate_cross_communicate(agent_a, agent_b, test_dataset, device, message_length, batch_size=100, num_workers=0, batch_sampler=None):
     """
     Evaluate test accuracy of the emergent language communication system.
     
@@ -113,7 +116,10 @@ def evaluate_cross_communicate(agent_a, agent_b, test_dataset, device, message_l
     Returns:
         test_accuracy: Test accuracy as a float
     """
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    if batch_sampler == None:
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    else:
+        test_loader = DataLoader(test_dataset, batch_sampler=batch_sampler)
 
     total_correct = 0
     total_samples = 0
