@@ -47,7 +47,7 @@ def test_time_scaling(agent, sample, message_length=4, n=10, sampling_temperatur
 
 
 
-def test_time_adaptation(agent, sample, num_iterations=100, lr=1e-4, sampling_temperature=1e-5, entropy_factor=0, length_message=4):
+def test_time_sample_adaptation(agent, sample, num_iterations=100, lr=1e-4, sampling_temperature=1e-5, entropy_factor=0, length_message=4):
     """
     Test-time training for a single sample.
     This function fine-tunes a clone of the agent's text generation GRU modules on a single sample.
@@ -104,7 +104,7 @@ def test_time_adaptation(agent, sample, num_iterations=100, lr=1e-4, sampling_te
     return sender_result['indices'], sender_result['discretized'].detach()
 
 
-def test_time_batch_adaptation(
+def test_time_dataset_adaptation(
     agent, 
     test_loader, 
     lr, 
@@ -181,3 +181,68 @@ def test_time_batch_adaptation(
                 acc=f"{total_corrects / ((iter_num + 1) * imgs.shape[0]):.4f}"
             )
             progress_bar.refresh()
+            
+            
+def test_time_batch_adaptation(
+    agent, 
+    batch, 
+    lr, 
+    num_epochs, 
+    message_length, 
+    sampling_temperature=1e-5, 
+    entropy_factor=0, 
+    contrastive_loss_temperature=0.1, 
+    device="cuda", 
+):      
+    
+    agent_clone = copy.deepcopy(agent)
+    agent_clone.object_encoder.eval()
+
+    optimizer = torch.optim.Adam([
+        {'params': agent_clone.text_generation_gru.parameters()},
+        {'params': agent_clone.text_generation_gru_head.parameters()}
+    ], lr=lr)
+    
+    for epoch_num in range(num_epochs):        
+        optimizer.zero_grad()
+        imgs = batch.to(device)
+                
+        # Forward pass through agent
+        img_repr = agent_clone.forward_image_encoder(imgs)
+        text_generation_result = agent_clone.forward_text_generation(
+            imgs, 
+            message_length=message_length, 
+            freeze_codebook=True, 
+            mode='discrete', 
+            sampling_temperature=sampling_temperature
+        )
+        text_repr = agent_clone.forward_text_perception(text_generation_result['discretized'])
+        
+        # Compute contrastive loss
+        similarities_messages_to_objects = pairwise_cosine_similarity(text_repr, img_repr) / contrastive_loss_temperature
+        contrastive_loss = F.cross_entropy(
+            similarities_messages_to_objects, 
+            torch.arange(imgs.shape[0], device=device)
+        )
+        
+        # Total loss with commitment and entropy regularization
+        loss = contrastive_loss + text_generation_result['commit_loss']
+        if entropy_factor > 0:
+            entropy_loss = -Categorical(
+                F.softmax(text_generation_result['words_logits'], dim=2)
+            ).entropy().mean()
+            loss = loss + entropy_factor * entropy_loss
+        
+        # Backward pass
+        loss.backward()
+        optimizer.step()        
+    
+    agent_clone.eval()
+    sender_result = agent_clone.forward_text_generation(
+        imgs, message_length=message_length, 
+        freeze_codebook=True,
+        mode='discrete', 
+        sampling_temperature=sampling_temperature
+    )
+
+    return sender_result['indices'], sender_result['discretized'].detach()
