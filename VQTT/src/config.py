@@ -1,5 +1,6 @@
-dataset = 'imagenet'
-representation_dim = 2048
+dataset = 'shape_unique_single_attribute'
+representation_dim = 1024
+batch_size = 1
 vocab_size = 10
 message_length = [3, 4]
 num_pretrain_epochs = 50
@@ -10,23 +11,23 @@ learning_rate_phase2_a = 1e-5
 learning_rate_phase2_b = 1e-5
 agent_a_training_mode = 'frozen'
 
-dataset_tt = 'imagenet_same_class'
-message_length_tt = 8
+dataset_tt = 'shape_unique_double_attribute'
+message_length_tt = 5
 test_time_mode = 'batch_adaptation'
-num_iterations = 300
+num_iterations = 100
 learning_rate_tt = 1e-4
 sampling_temperature_tt = 1e-5
 best_of_n = 10
 num_test_classes = 100
 
-number_of_candidates = 100
+number_of_candidates = 1
 commitment_weight = 0.25
 sampling_temperature = 1e-5
 freeze_codebook = True
 decay = 0.99
 entropy_regularization_factor = 0
 contrastive_loss_temperature = 0.01
-pretrained_checkpoint_a = "20251225_1135_bs32_vocab10_repr2048_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1"
+pretrained_checkpoint_a = None
 pretrained_checkpoint_b = None
 dialogued_checkpoint = pretrained_checkpoint_a
 sim = "cosine"
