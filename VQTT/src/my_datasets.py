@@ -129,3 +129,14 @@ def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
     save_dataset(train_dataset, "/home/shared/data/shape/train")
     save_dataset(val_dataset, "/home/shared/data/shape/val")
     save_dataset(test_dataset, "/home/shared/data/shape/test")
+    
+    
+class PreSavedBatchDataset(Dataset):
+    def __init__(self, batches):
+        self.batches = batches
+
+    def __len__(self):
+        return len(self.batches)
+
+    def __getitem__(self, idx):
+        return self.batches[idx]
