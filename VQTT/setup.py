@@ -22,6 +22,8 @@ def generate_configs(csv_configs):
                         f.write(f"{key} = None\n")
                     elif "[" in value:
                         f.write(f"{key} = {value.replace(' ', ', ')}\n")
+                    elif value == "pretrained_checkpoint_a":
+                        f.write(f'{key} = {value}\n')
                     else:
                         f.write(f'{key} = "{value}"\n')
 
