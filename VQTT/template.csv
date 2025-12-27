@@ -4,9 +4,11 @@ dataset,representation_dim,batch_size,vocab_size,message_length,message_length_t
 
 
 
-shape1,1024,32,10,[3 4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape2,batch_adaptation,200,1e-5,1e-2,10,100,50,0.25,1e-5,True,0.99,0,0.01,euclidean,20251221_0128_bs32_vocab10_repr1024_lr1_0.001_lr2a_0.001_lr2b_0.001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1,None,pretrained_checkpoint_a,1
 
 shape1,1024,32,10,[3 4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape2,batch_adaptation,200,1e-5,1e-2,10,100,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251220_0615_bs32_vocab10_repr1024_lr1_0.001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1,None,pretrained_checkpoint_a,1
+
+shape12,1024,32,10,[3 4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape3,batch_adaptation,200,1e-5,1e-2,10,100,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251225_1907_bs32_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1,None,pretrained_checkpoint_a,1
+
 
 imagenet,2048,32,10,[3 4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,imagenet_same_class,batch_adaptation,200,1e-5,1e-2,10,100,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251225_1135_bs32_vocab10_repr2048_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1,None,pretrained_checkpoint_a,1
 
@@ -15,8 +17,14 @@ shape_unique_single_attribute,1024,1,10,[1 2],2,50,50,1e-4,1e-4,1e-4,1e-4,frozen
 shape_unique_single_attribute,1024,1,10,[2 3],3,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,sample_adaptation,0,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251227_0101_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
 shape_unique_single_attribute,1024,1,10,[2],2,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,sample_adaptation,0,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251227_0132_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
 shape_unique_single_attribute,1024,1,10,[4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,sample_adaptation,0,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251227_0148_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
+shape_unique_single_attribute,1024,1,10,[3 4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,sample_adaptation,0,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251226_1816_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
+
 
 shape_unique_atleast_one_attribute,1024,1,10,[1 2],2,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,batch_adaptation,400,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251227_0009_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
 shape_unique_atleast_one_attribute,1024,1,10,[2 3],3,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,batch_adaptation,300,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251226_2352_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
 shape_unique_atleast_one_attribute,1024,1,10,[2],2,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,batch_adaptation,200,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251227_0023_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
 shape_unique_atleast_one_attribute,1024,1,10,[4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,batch_adaptation,200,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251227_0039_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
+shape_unique_atleast_one_attribute,1024,1,10,[3 4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape_unique_double_attribute,batch_adaptation,200,1e-5,1e-2,10,1,50,0.25,1e-5,True,0.99,0,0.01,cosine,20251226_1853_bs1_vocab10_repr1024_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand1_contr0.01_seed1,None,pretrained_checkpoint_a,1
+
+
+shape1,1024,32,10,[3 4],4,50,50,1e-4,1e-4,1e-4,1e-4,frozen,shape2,batch_adaptation,200,1e-5,1e-2,10,100,50,0.25,1e-5,True,0.99,0,0.01,euclidean,20251221_0128_bs32_vocab10_repr1024_lr1_0.001_lr2a_0.001_lr2b_0.001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1,None,pretrained_checkpoint_a,1
