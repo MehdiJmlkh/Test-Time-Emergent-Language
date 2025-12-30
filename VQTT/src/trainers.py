@@ -28,7 +28,7 @@ def train_agents_baseline_reinforce(
     lr_scheduler: Any, 
     device: torch.device,
     num_epochs: int = 10, 
-    message_length: int = 4,
+    message_length=[4],
     sampling_temperature: float = 1e0, 
     entropy_regularization_factor: float = 0e0, 
     contrastive_loss_temperature: float = 0.1,
@@ -105,7 +105,7 @@ def train_agents_baseline_reinforce(
             batch_size = imgs.shape[0]
             optimizer.zero_grad()
             imgs = imgs.to(device)
-            sender_result = agent_a.forward_text_generation(imgs, message_length=message_length, sampling_temperature=sampling_temperature)
+            sender_result = agent_a.forward_text_generation(imgs, message_length=random.choice(message_length), sampling_temperature=sampling_temperature)
             words = sender_result['indices']
             sender_words_logits = sender_result['words_logits']
             probs = sender_words_logits
@@ -154,7 +154,7 @@ def train_agents_baseline_reinforce(
         for iter_num, (imgs, labels) in enumerate(val_loader):
             optimizer.zero_grad()
             imgs = imgs.to(device)
-            sender_result = agent_a.forward_text_generation(imgs, message_length=message_length, sampling_temperature=1e-5)
+            sender_result = agent_a.forward_text_generation(imgs, message_length=message_length[-1], sampling_temperature=1e-5)
             words = sender_result['indices']
             listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
