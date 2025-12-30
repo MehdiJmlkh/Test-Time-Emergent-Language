@@ -239,7 +239,7 @@ def test_time_batch_adaptation(
     
     agent_clone.eval()
     sender_result = agent_clone.forward_text_generation(
-        imgs, message_length=message_length, 
+        batch.to(device), message_length=message_length, 
         freeze_codebook=True,
         mode='discrete', 
         sampling_temperature=sampling_temperature
