@@ -14,3 +14,4 @@ runs/
 configs
 *.html
 output.ipynb
+assets/
