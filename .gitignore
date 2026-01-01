@@ -11,6 +11,6 @@ __pycache__/
 
 celeba/
 runs/
-experiments
 configs
 *.html
+output.ipynb
