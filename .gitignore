@@ -11,7 +11,9 @@ __pycache__/
 
 celeba/
 runs/
+__runs/
 configs
 *.html
 output.ipynb
 assets/
+msgs/
