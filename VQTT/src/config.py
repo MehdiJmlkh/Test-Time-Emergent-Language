@@ -1,6 +1,6 @@
 baseline = False
-dataset = 'mnist1'
-representation_dim = 192
+dataset = 'shape1'
+representation_dim = 1024
 batch_size = 32
 vocab_size = 10
 message_length = [3, 4]
@@ -12,12 +12,12 @@ learning_rate_phase2_a = 1e-4
 learning_rate_phase2_b = 1e-4
 agent_a_training_mode = 'frozen'
 
-dataset_tt = 'mnist2'
-message_length_tt = 8
+dataset_tt = 'shape2'
+message_length_tt = 9
 test_time_mode = 'batch_adaptation'
 num_iterations = 200
 learning_rate_tt = 1e-4
-sampling_temperature_tt = 1
+sampling_temperature_tt = 1e-2
 best_of_n = 100
 num_test_classes = 50
 
@@ -28,7 +28,7 @@ freeze_codebook = True
 decay = 0.99
 entropy_regularization_factor = 0
 contrastive_loss_temperature = 0.01
-pretrained_checkpoint_a = '20251223_1750_bs32_vocab10_repr192_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1'
+pretrained_checkpoint_a = '20251220_0615_bs32_vocab10_repr1024_lr1_0.001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1'
 pretrained_checkpoint_b = None
 dialogued_checkpoint = pretrained_checkpoint_a
 sim = "cosine"
