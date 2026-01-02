@@ -14,8 +14,8 @@ agent_a_training_mode = 'frozen'
 
 dataset_tt = 'shape2'
 message_length_tt = 9
-test_time_mode = 'batch_adaptation'
-num_iterations = 200
+test_time_mode = 'sample_adaptation'
+num_iterations = 50
 learning_rate_tt = 1e-4
 sampling_temperature_tt = 1e-2
 best_of_n = 100
