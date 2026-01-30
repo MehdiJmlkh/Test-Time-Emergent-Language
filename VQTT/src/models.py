@@ -133,7 +133,7 @@ class BaselineAgent(AbstractAgent):
 
 
 class VQELAgent(AbstractAgent):
-    def __init__(self, input_dim: int, representation_dim: int, threshold_ema_dead_code, vocab_size: int, object_encoder: nn.Module, decay=0.97, commitment_weight=0.25, orthogonal_reg_weight=0, use_cosine_sim=False):
+    def __init__(self, input_dim: int, representation_dim: int, threshold_ema_dead_code, vocab_size: int, object_encoder: nn.Module, decay=0.97, commitment_weight=0.25, orthogonal_reg_weight=0, use_cosine_sim=False, object_decoder: nn.Module=None) -> None:
         super(VQELAgent, self).__init__()
         self.input_dim = input_dim
         self.use_cosine_sim = use_cosine_sim
@@ -146,6 +146,7 @@ class VQELAgent(AbstractAgent):
         
         # Object encoder
         self.object_encoder = object_encoder
+        self.object_decoder = object_decoder
         
         # Text generation components
         self.text_generation_gru = nn.GRU(representation_dim, representation_dim, batch_first=True)
@@ -189,6 +190,9 @@ class VQELAgent(AbstractAgent):
             stochastic_sample_codes=True,
             orthogonal_reg_weight=self.orthogonal_reg_weight,
         ).to(self.vq.codebook.device)
+    
+    def forward_image_decoder(self, x):
+        return self.object_decoder(x)
     
     def forward_image_encoder(self, x):
         """
