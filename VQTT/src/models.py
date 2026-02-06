@@ -197,7 +197,7 @@ class VQELAgent(AbstractAgent):
             return recon_combined, recons
         return recon_combined
     
-    def forward_image_encoder(self, x):
+    def forward_image_encoder(self, x, message_length=None):
         """
         Encode input through the object encoder.
 
@@ -207,7 +207,7 @@ class VQELAgent(AbstractAgent):
         Returns:
             torch.Tensor: Encoded representation of shape (batch_size, representation_dim).
         """
-        return self.object_encoder(x)
+        return self.object_encoder(x, num_slots=message_length)
     
     def forward_text_generation(self, x, message_length=4, freeze_codebook=False, 
                               sampling_temperature=1, mode='continuous') -> dict:
