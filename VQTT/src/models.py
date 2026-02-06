@@ -191,8 +191,11 @@ class VQELAgent(AbstractAgent):
             orthogonal_reg_weight=self.orthogonal_reg_weight,
         ).to(self.vq.codebook.device)
     
-    def forward_image_decoder(self, x):
-        return self.object_decoder(x)
+    def forward_image_decoder(self, x, message_length=None, return_recons=False):
+        recon_combined, recons = self.object_decoder(x, num_slots=message_length)
+        if return_recons:
+            return recon_combined, recons
+        return recon_combined
     
     def forward_image_encoder(self, x):
         """
