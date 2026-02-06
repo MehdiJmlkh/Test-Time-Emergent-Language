@@ -19,7 +19,7 @@ class AbstractAgent(ABC, nn.Module):
     action selection, and learning logic as needed.
     """
     def __init__(self) -> None:
-        super(AbstractAgent, self).__init__()
+        super().__init__()
         pass
 
     def forward_image_encoder(self, x) -> Any:
@@ -133,8 +133,8 @@ class BaselineAgent(AbstractAgent):
 
 
 class VQELAgent(AbstractAgent):
-    def __init__(self, input_dim: int, representation_dim: int, threshold_ema_dead_code, vocab_size: int, object_encoder: nn.Module, decay=0.97, commitment_weight=0.25, orthogonal_reg_weight=0, use_cosine_sim=False, object_decoder: nn.Module=None) -> None:
-        super(VQELAgent, self).__init__()
+    def __init__(self, input_dim: int, representation_dim: int, threshold_ema_dead_code, vocab_size: int, object_encoder: nn.Module, decay=0.97, commitment_weight=0.25, orthogonal_reg_weight=0, use_cosine_sim=False, object_decoder: nn.Module=None):
+        super().__init__()
         self.input_dim = input_dim
         self.use_cosine_sim = use_cosine_sim
         self.representation_dim = representation_dim
