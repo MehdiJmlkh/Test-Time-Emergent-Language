@@ -19,7 +19,7 @@ class AbstractAgent(ABC, nn.Module):
     action selection, and learning logic as needed.
     """
     def __init__(self) -> None:
-        super().__init__()
+        super(AbstractAgent, self).__init__()
         pass
 
     def forward_image_encoder(self, x) -> Any:
@@ -133,8 +133,8 @@ class BaselineAgent(AbstractAgent):
 
 
 class VQELAgent(AbstractAgent):
-    def __init__(self, input_dim: int, representation_dim: int, threshold_ema_dead_code, vocab_size: int, object_encoder: nn.Module, decay=0.97, commitment_weight=0.25, orthogonal_reg_weight=0, use_cosine_sim=False, object_decoder: nn.Module=None):
-        super().__init__()
+    def __init__(self, input_dim: int, representation_dim: int, threshold_ema_dead_code, vocab_size: int, object_encoder: nn.Module, decay=0.97, commitment_weight=0.25, orthogonal_reg_weight=0, use_cosine_sim=False):
+        super(VQELAgent, self).__init__()
         self.input_dim = input_dim
         self.use_cosine_sim = use_cosine_sim
         self.representation_dim = representation_dim
@@ -146,7 +146,6 @@ class VQELAgent(AbstractAgent):
         
         # Object encoder
         self.object_encoder = object_encoder
-        self.object_decoder = object_decoder
         
         # Text generation components
         self.text_generation_gru = nn.GRU(representation_dim, representation_dim, batch_first=True)
@@ -191,13 +190,7 @@ class VQELAgent(AbstractAgent):
             orthogonal_reg_weight=self.orthogonal_reg_weight,
         ).to(self.vq.codebook.device)
     
-    def forward_image_decoder(self, x, message_length=None, return_recons=False):
-        recon_combined, recons = self.object_decoder(x, num_slots=message_length)
-        if return_recons:
-            return recon_combined, recons
-        return recon_combined
-    
-    def forward_image_encoder(self, x, message_length=None):
+    def forward_image_encoder(self, x):
         """
         Encode input through the object encoder.
 
@@ -207,7 +200,7 @@ class VQELAgent(AbstractAgent):
         Returns:
             torch.Tensor: Encoded representation of shape (batch_size, representation_dim).
         """
-        return self.object_encoder(x, num_slots=message_length)
+        return self.object_encoder(x)
     
     def forward_text_generation(self, x, message_length=4, freeze_codebook=False, 
                               sampling_temperature=1, mode='continuous') -> dict:
@@ -224,17 +217,35 @@ class VQELAgent(AbstractAgent):
         Returns:
             TextGenerationOutput: Dictionary containing generation results.
         """
+        # Encode input
+        x = self.object_encoder(x)
+        batch_size = x.shape[0]
+        device = next(self.parameters()).device
+        
+        # Initialize GRU hidden state
+        h = torch.zeros(1, batch_size, self.representation_dim, device=device)
+        h[0, :, :] = x
+        
+        # Initialize input for generation
+        x = torch.zeros(batch_size, 1, self.representation_dim, device=device)
+        
+        # Storage for results
         continuous_outputs = []
         discretized_outputs = []
         indices_outputs = []
         commit_losses = []
         word_logits = []
-
-        for i in range(x.shape[1]):
+        
+        # Generation loop
+        for _ in range(message_length):
+            # GRU forward pass
+            x, h = self.text_generation_gru(x, h)
+            x = x[:, -1:, :]  # Take last output
+            x = self.text_generation_gru_head(x)
+            
             # Vector quantization
-            slot = x[:, i, :]
             x_discretized, x_indices, x_commit_loss = self.vq(
-                slot, freeze_codebook=freeze_codebook, sample_codebook_temp=sampling_temperature
+                x, freeze_codebook=freeze_codebook, sample_codebook_temp=sampling_temperature
             )
             
             # Compute word logits using distance to codebook
@@ -243,7 +254,7 @@ class VQELAgent(AbstractAgent):
             
             if self.use_cosine_sim:
                 # First reshape if needed
-                x_flat = slot.view(slot.size(0), -1)               # (B, D)
+                x_flat = x.view(x.size(0), -1)               # (B, D)
                 codebook_flat = codebook.view(codebook.size(0), -1)  # (K, D)
 
                 # Normalize
@@ -255,20 +266,29 @@ class VQELAgent(AbstractAgent):
 
                 word_logits_step = F.softmax(similarities / sampling_temperature, dim=-1)
             else:
-                distances = -torch.cdist(slot, codebook, p=2.0)[:, 0, :]
+                distances = -torch.cdist(x, codebook, p=2.0)[:, 0, :]
                 word_logits_step = F.softmax(distances / sampling_temperature, dim=-1)
 
             
             # Store results
-            continuous_outputs.append(slot)
+            continuous_outputs.append(x)
             discretized_outputs.append(x_discretized)
-            indices_outputs.append(x_indices.unsqueeze(1))
+            indices_outputs.append(x_indices)
             commit_losses.append(x_commit_loss)
             word_logits.append(word_logits_step)
+            
+            # Update input for next step
+            if mode == 'continuous':
+                pass  # Keep continuous representation
+            elif mode == 'discrete':
+                x = x_discretized
+            else:
+                raise ValueError(f"Invalid mode: {mode}. Must be 'continuous' or 'discrete'.")
+        
         # Combine results
         result = {
             'continuous': torch.cat(continuous_outputs, dim=1),
-            'discretized': torch.stack(discretized_outputs, dim=1),
+            'discretized': torch.cat(discretized_outputs, dim=1),
             'indices': torch.cat(indices_outputs, dim=1),
             'commit_loss': torch.stack(commit_losses).sum(),
             'words_logits': torch.stack(word_logits, dim=1)
