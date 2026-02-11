@@ -224,35 +224,17 @@ class VQELAgent(AbstractAgent):
         Returns:
             TextGenerationOutput: Dictionary containing generation results.
         """
-        # Encode input
-        x = self.object_encoder(x)
-        batch_size = x.shape[0]
-        device = next(self.parameters()).device
-        
-        # Initialize GRU hidden state
-        h = torch.zeros(1, batch_size, self.representation_dim, device=device)
-        h[0, :, :] = x
-        
-        # Initialize input for generation
-        x = torch.zeros(batch_size, 1, self.representation_dim, device=device)
-        
-        # Storage for results
         continuous_outputs = []
         discretized_outputs = []
         indices_outputs = []
         commit_losses = []
         word_logits = []
-        
-        # Generation loop
-        for _ in range(message_length):
-            # GRU forward pass
-            x, h = self.text_generation_gru(x, h)
-            x = x[:, -1:, :]  # Take last output
-            x = self.text_generation_gru_head(x)
-            
+
+        for i in range(x.shape[1]):
             # Vector quantization
+            slot = x[:, i, :]
             x_discretized, x_indices, x_commit_loss = self.vq(
-                x, freeze_codebook=freeze_codebook, sample_codebook_temp=sampling_temperature
+                slot, freeze_codebook=freeze_codebook, sample_codebook_temp=sampling_temperature
             )
             
             # Compute word logits using distance to codebook
@@ -261,7 +243,7 @@ class VQELAgent(AbstractAgent):
             
             if self.use_cosine_sim:
                 # First reshape if needed
-                x_flat = x.view(x.size(0), -1)               # (B, D)
+                x_flat = slot.view(slot.size(0), -1)               # (B, D)
                 codebook_flat = codebook.view(codebook.size(0), -1)  # (K, D)
 
                 # Normalize
@@ -273,29 +255,20 @@ class VQELAgent(AbstractAgent):
 
                 word_logits_step = F.softmax(similarities / sampling_temperature, dim=-1)
             else:
-                distances = -torch.cdist(x, codebook, p=2.0)[:, 0, :]
+                distances = -torch.cdist(slot, codebook, p=2.0)[:, 0, :]
                 word_logits_step = F.softmax(distances / sampling_temperature, dim=-1)
 
             
             # Store results
-            continuous_outputs.append(x)
+            continuous_outputs.append(slot)
             discretized_outputs.append(x_discretized)
-            indices_outputs.append(x_indices)
+            indices_outputs.append(x_indices.unsqueeze(1))
             commit_losses.append(x_commit_loss)
             word_logits.append(word_logits_step)
-            
-            # Update input for next step
-            if mode == 'continuous':
-                pass  # Keep continuous representation
-            elif mode == 'discrete':
-                x = x_discretized
-            else:
-                raise ValueError(f"Invalid mode: {mode}. Must be 'continuous' or 'discrete'.")
-        
         # Combine results
         result = {
             'continuous': torch.cat(continuous_outputs, dim=1),
-            'discretized': torch.cat(discretized_outputs, dim=1),
+            'discretized': torch.stack(discretized_outputs, dim=1),
             'indices': torch.cat(indices_outputs, dim=1),
             'commit_loss': torch.stack(commit_losses).sum(),
             'words_logits': torch.stack(word_logits, dim=1)

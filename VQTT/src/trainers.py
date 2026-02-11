@@ -17,6 +17,8 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import random
+import matplotlib.pyplot as plt
+import utils
 
 
 def train_agents_baseline_reinforce(
@@ -34,7 +36,8 @@ def train_agents_baseline_reinforce(
     contrastive_loss_temperature: float = 0.1,
     ckpt_dir: str = "checkpoints", 
     tensorboard_writer: Optional[SummaryWriter] = None, 
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
+    refrential: bool = True
 ) -> Tuple[float, Optional[Dict[str, Any]]]:
     """
     Train the agents using REINFORCE algorithm.
@@ -68,6 +71,7 @@ def train_agents_baseline_reinforce(
     
     reward_deque: deque = deque(maxlen=100)
     best_val_acc: float = 0.0
+    best_val_loss: float = float('inf')
     best_model_state: Optional[Dict[str, Any]] = None
     
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -100,7 +104,8 @@ def train_agents_baseline_reinforce(
         total_m1_loss: float = 0.0
         total_m2_loss: float = 0.0
         total_correct: int = 0
-        total_ins: int = 0 
+        total_ins: int = 0
+        val_total = 0 
         for iter_num, (imgs, labels) in enumerate(progress_bar):
             batch_size = imgs.shape[0]
             optimizer.zero_grad()
@@ -114,7 +119,12 @@ def train_agents_baseline_reinforce(
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
             #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
             similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
-            m2_loss = F.cross_entropy(similarities_messages_to_objects, torch.arange(0, batch_size).to(device))
+            if refrential:
+                m2_loss = F.cross_entropy(similarities_messages_to_objects, torch.arange(0, batch_size).to(device))
+            else:
+                reconstructed_imgs = agent_b.forward_image_decoder(listener_messages_repr)
+                criterion = nn.MSELoss()
+                m2_loss = criterion(reconstructed_imgs, imgs)
             m2_loss.backward()
             ###
             rewards = -1*F.cross_entropy(similarities_messages_to_objects, torch.arange(0, batch_size).to(device), reduction='none').detach()
@@ -150,6 +160,10 @@ def train_agents_baseline_reinforce(
             progress_bar.refresh()
             global_step = epoch_num * len(train_loader) + iter_num
             tensorboard_writer.add_scalar("Loss/train", (total_correct/(total_ins)), global_step)
+        
+        if not refrential:
+            utils.show_reconstruction(imgs, reconstructed_imgs, idx=0)
+        
         total_correct, total_ins = 0, 0
         for iter_num, (imgs, labels) in enumerate(val_loader):
             optimizer.zero_grad()
@@ -157,48 +171,94 @@ def train_agents_baseline_reinforce(
             sender_result = agent_a.forward_text_generation(imgs, message_length=message_length[-1], sampling_temperature=1e-5)
             words = sender_result['indices']
             listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
-            listener_objects_repr = agent_b.forward_image_encoder(imgs)
-            #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
-            similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr)
-            total_correct += (similarities_messages_to_objects.argmax(-1) == torch.arange(0, batch_size).to(device)).sum().item()
-            total_ins += len(imgs)
-        val_acc: float = total_correct / total_ins
-        logger.info(f'val accuracy: {round(val_acc, 3)}')
-    
-        # Save checkpoint every epoch
-        save_checkpoint(
-            epoch=epoch_num,
-            agent_a=agent_a,
-            agent_b=agent_b,
-            optimizer=optimizer,
-            lr_scheduler=lr_scheduler,
-            is_best=False,
-            val_acc=val_acc
-        )
-    
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            best_model_state = {
-                'agent_a': copy.deepcopy(agent_a.state_dict()),
-                'agent_b': copy.deepcopy(agent_b.state_dict()),
-                'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
-                'epoch': epoch_num
-            }
-            # Save best model checkpoint
+            if refrential:
+                listener_objects_repr = agent_b.forward_image_encoder(imgs)
+                #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
+                similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr)
+                total_correct += (similarities_messages_to_objects.argmax(-1) == torch.arange(0, batch_size).to(device)).sum().item()
+                total_ins += len(imgs)
+            else:
+                reconstructed_imgs = agent_b.forward_image_decoder(listener_messages_repr)
+                criterion = nn.MSELoss()
+                val_loss = criterion(reconstructed_imgs, imgs)
+                val_total += val_loss
+        
+        if refrential:
+            val_acc: float = total_correct / total_ins
+            logger.info(f'val accuracy: {round(val_acc, 3)}')
+
+            # Save checkpoint every epoch
             save_checkpoint(
                 epoch=epoch_num,
                 agent_a=agent_a,
                 agent_b=agent_b,
                 optimizer=optimizer,
                 lr_scheduler=lr_scheduler,
-                is_best=True,
+                is_best=False,
                 val_acc=val_acc
             )
-            logger.info(f'New best validation accuracy: {best_val_acc:.3f}')
+
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                best_model_state = {
+                    'agent_a': copy.deepcopy(agent_a.state_dict()),
+                    'agent_b': copy.deepcopy(agent_b.state_dict()),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'epoch': epoch_num
+                }
+                # Save best model checkpoint
+                save_checkpoint(
+                    epoch=epoch_num,
+                    agent_a=agent_a,
+                    agent_b=agent_b,
+                    optimizer=optimizer,
+                    lr_scheduler=lr_scheduler,
+                    is_best=True,
+                    val_acc=val_acc
+                )
+                logger.info(f'New best validation accuracy: {best_val_acc:.3f}')
+        else:
+            val_loss = val_total / len(val_loader)
+            logger.info(f'val loss: {round(val_loss.item(), 5)}')
+
+            # Save checkpoint every epoch
+            save_checkpoint(
+                epoch=epoch_num,
+                agent_a=agent_a,
+                agent_b=agent_b,
+                optimizer=optimizer,
+                lr_scheduler=lr_scheduler,
+                is_best=False,
+                val_acc=None
+            )
+
+            if val_loss < best_val_loss or best_model_state is None:
+                best_val_loss = val_loss.item()
+                best_model_state = {
+                    'agent_a': copy.deepcopy(agent_a.state_dict()),
+                    'agent_b': copy.deepcopy(agent_b.state_dict()),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'epoch': epoch_num
+                }
+                # Save best model checkpoint
+                save_checkpoint(
+                    epoch=epoch_num,
+                    agent_a=agent_a,
+                    agent_b=agent_b,
+                    optimizer=optimizer,
+                    lr_scheduler=lr_scheduler,
+                    is_best=True,
+                    val_acc=None
+                )
+                logger.info(f'New best validation loss: {best_val_loss:.5f}')
     logger.info(best_val_acc)
     
-    return best_val_acc, best_model_state
+    if refrential:
+        return best_val_acc, best_model_state
+    else:
+        return best_val_loss, best_model_state
 
 
 
@@ -221,6 +281,7 @@ def train_self_play(
     contrastive_loss_temperature=0.1, 
     ckpt_dir='checkpoints',
     logger: Optional[logging.Logger] = None,
+    refrential=True
 ):
     """
     Self-play an agent using contrastive learning between image and text representations.
@@ -244,6 +305,7 @@ def train_self_play(
         logger = logging.getLogger(__name__)
     
     best_val_acc = 0.0
+    best_val_loss = float('inf')    
     best_model_state = None
     
     # Create checkpoint directory if it doesn't exist
@@ -275,7 +337,7 @@ def train_self_play(
         progress_bar = tqdm(train_loader, desc=f'Training Progress Epoch {epoch_num}/{num_pretrain_epochs}')
         
         # Initialize metrics
-        total_contrastive_loss = 0.0
+        total_task_loss = 0.0
         total_commit_loss = 0.0
         total_corrects = 0
         
@@ -284,30 +346,36 @@ def train_self_play(
             imgs = imgs.to(device)
             
             # Forward pass through agent
-            img_repr = agent.forward_image_encoder(imgs)
+            img_repr, avg_entropy = agent.forward_image_encoder(imgs)
+
             text_generation_result = agent.forward_text_generation(
-                imgs, 
+                img_repr, 
                 message_length=random.choice(length_message), 
                 freeze_codebook=False, 
                 mode='discrete', 
                 sampling_temperature=sampling_temperature
             )
-            text_repr = agent.forward_text_perception(text_generation_result['discretized'])
-            
-            # Compute contrastive loss
-            similarities_messages_to_objects = pairwise_cosine_similarity(text_repr, img_repr) / contrastive_loss_temperature
-            contrastive_loss = F.cross_entropy(
-                similarities_messages_to_objects, 
-                torch.arange(imgs.shape[0], device=device)
-            )
-            
-            # Total loss with commitment and entropy regularization
-            loss = contrastive_loss + text_generation_result['commit_loss']
-            if entropy_factor > 0:
-                entropy_loss = -Categorical(
-                    F.softmax(text_generation_result['words_logits'], dim=2)
-                ).entropy().mean()
-                loss = loss + entropy_factor * entropy_loss
+            text_repr = text_generation_result['discretized']
+            if refrential:
+                similarities_messages_to_objects = pairwise_cosine_similarity(text_repr, img_repr) / contrastive_loss_temperature
+                task_loss = F.cross_entropy(
+                    similarities_messages_to_objects, 
+                    torch.arange(imgs.shape[0], device=device)
+                )
+
+                loss = task_loss + text_generation_result['commit_loss']
+            else:
+                # text_repr = torch.stack(text_repr, dim=1)
+                reconstructed_imgs, recons = agent.forward_image_decoder(text_repr, return_recons=True) 
+                criterion = nn.MSELoss()
+                task_loss = criterion(reconstructed_imgs, imgs)
+                loss = task_loss + text_generation_result['commit_loss'] + entropy_factor * avg_entropy
+                
+            # if entropy_factor > 0:
+            #     entropy_loss = -Categorical(
+            #         F.softmax(text_generation_result['words_logits'], dim=2)
+            #     ).entropy().mean()
+            #     loss = loss + entropy_factor * entropy_loss
             
             # Backward pass
             loss.backward()
@@ -315,55 +383,77 @@ def train_self_play(
             lr_scheduler.step()
             
             # Update metrics
-            total_contrastive_loss += contrastive_loss.item()
+            total_task_loss += task_loss.item()
             total_commit_loss += text_generation_result['commit_loss'].item()
             
             # Compute accuracy
-            predicted_labels = pairwise_cosine_similarity(text_repr, img_repr).argmax(1).cpu()
-            total_corrects += (predicted_labels == torch.arange(imgs.shape[0])).sum().item()
+            # predicted_labels = pairwise_cosine_similarity(text_repr, img_repr).argmax(1).cpu()
+            # total_corrects += (predicted_labels == torch.arange(imgs.shape[0])).sum().item()
+            total_corrects = 0
             
             # Update progress bar
             progress_bar.set_postfix(
                 loss=f"{loss.item():.4f}",
-                contrastive_loss=f"{total_contrastive_loss / (iter_num + 1):.4f}",
+                task_loss=f"{total_task_loss / (iter_num + 1):.4f}",
                 commit_loss=f"{total_commit_loss / (iter_num + 1):.4f}",
                 acc=f"{total_corrects / ((iter_num + 1) * imgs.shape[0]):.4f}"
             )
             progress_bar.refresh()
+            if iter_num % 100 == 0:
+                utils.show_recons(imgs, reconstructed_imgs, recons, idx=0)
         
+        if not refrential:
+            utils.show_reconstruction(imgs, reconstructed_imgs, idx=0)
+
         # Validation loop
         total_correct = 0
         total_instances = 0
+        total_loss = 0
+        val_acc = 0
         
         with torch.no_grad():
             for imgs, _ in tqdm(val_loader, desc="Validation"):
                 imgs = imgs.to(device)
                 
                 # Forward pass
-                img_repr = agent.forward_image_encoder(imgs)
+                img_repr, _ = agent.forward_image_encoder(imgs)
                 text_generation_result = agent.forward_text_generation(
-                    imgs, 
-                    message_length=length_message[-1], 
-                    freeze_codebook=True, 
+                    img_repr, 
+                    message_length=random.choice(length_message), 
+                    freeze_codebook=False, 
                     mode='discrete', 
                     sampling_temperature=sampling_temperature
                 )
-                text_repr = agent.forward_text_perception(text_generation_result['discretized'])
+                text_repr = text_generation_result['discretized']
+                if refrential:
+                    predicted_labels = pairwise_cosine_similarity(text_repr, img_repr).argmax(1).cpu()
+                    total_correct += (predicted_labels == torch.arange(imgs.shape[0])).sum().item()
+                    total_instances += imgs.shape[0]
+                else:
+                    reconstructed_imgs = agent.forward_image_decoder(text_repr)
+                    criterion = nn.MSELoss()
+                    val_loss = criterion(reconstructed_imgs, imgs)
+                    total_loss += val_loss.item()
                 
-                # Compute accuracy
-                predicted_labels = pairwise_cosine_similarity(text_repr, img_repr).argmax(1).cpu()
-                total_correct += (predicted_labels == torch.arange(imgs.shape[0])).sum().item()
-                total_instances += imgs.shape[0]
         
         # Update best model if validation accuracy improved
-        val_acc = total_correct / total_instances
-        logger.info(f'Validation accuracy: {val_acc:.3f}')
-        
-        is_best = val_acc > best_val_acc
-        if is_best:
-            best_val_acc = val_acc
-            best_model_state = copy.deepcopy(agent.state_dict())
-            logger.info(f'New best validation accuracy: {best_val_acc:.3f}')
+        if refrential:
+            val_acc = total_correct / total_instances
+            logger.info(f'Validation accuracy: {val_acc:.3f}')
+            
+            is_best = val_acc > best_val_acc
+            if is_best:
+                best_val_acc = val_acc
+                best_model_state = copy.deepcopy(agent.state_dict())
+                logger.info(f'New best validation accuracy: {best_val_acc:.3f}')
+        else:
+            val_loss = total_loss / len(val_loader)
+            logger.info(f'Validation loss: {val_loss:.3f}')
+            is_best = val_loss < best_val_loss
+            if is_best:
+                best_val_loss = val_loss
+                best_model_state = copy.deepcopy(agent.state_dict())
+                logger.info(f'New best validation loss: {best_val_loss:.5f}')
         
         # Save checkpoint every epoch
         save_checkpoint(
@@ -378,7 +468,10 @@ def train_self_play(
     # Load best model state
     if best_model_state is not None:
         agent.load_state_dict(best_model_state)
-        logger.info(f'Loaded best model with validation accuracy: {best_val_acc:.3f}')
+        if refrential:
+            logger.info(f'Loaded best model with validation accuracy: {best_val_acc:.3f}')
+        else:
+            logger.info(f'Loaded best model with validation loss: {best_val_loss:.3f}')
 
 
 def train_mutual_play(
@@ -399,7 +492,8 @@ def train_mutual_play(
     agent_a_training_mode='reinforce_with_preservation',
     freeze_codebook=True,
     logger: Optional[logging.Logger] = None,
-    tensorboard_writer: Optional[SummaryWriter] = None, 
+    tensorboard_writer: Optional[SummaryWriter] = None,
+    refrential=True
 ):
     """
     Train agents in dialogue phase with multiple training modes for agent A.
@@ -437,7 +531,7 @@ def train_mutual_play(
     os.makedirs(ckpt_dir, exist_ok=True)
     
     def save_checkpoint(epoch, agent_a, agent_b, optimizer, lr_scheduler, is_best=False, val_acc=None):
-        """Save model checkpoint."""
+        """Save mo  del checkpoint."""
         checkpoint = {
             'agent_a': agent_a.state_dict(),
             'agent_b': agent_b.state_dict(),
@@ -454,6 +548,7 @@ def train_mutual_play(
     
     # Initialize tracking variables
     best_val_acc = 0.0
+    best_val_loss = float('inf')
     best_model_state = None
     reward_deque = deque(maxlen=100)
     
@@ -487,8 +582,9 @@ def train_mutual_play(
             batch_size = imgs.shape[0]
             
             # ===== Agent A (Sender): Generate messages =====
+            x, avg_entropy = agent_a.forward_image_encoder(imgs)
             sender_result = agent_a.forward_text_generation(
-                imgs, 
+                x, 
                 message_length=random.choice(message_length), 
                 freeze_codebook=freeze_codebook, 
                 mode='discrete', 
@@ -499,12 +595,19 @@ def train_mutual_play(
             
             # ===== Agent B (Receiver): Interpret messages =====
             listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
-            listener_objects_repr = agent_b.forward_image_encoder(imgs)
+            listener_objects_repr, _ = agent_b.forward_image_encoder(imgs)
             
             # Compute receiver loss (cross-entropy on similarity matrix)
-            similarities = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
+            similarities = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr[:, 0, :]) / contrastive_loss_temperature
+
             target_indices = torch.arange(batch_size, device=device)
-            m2_loss = F.cross_entropy(similarities, target_indices)
+            if refrential:
+                m2_loss = F.cross_entropy(similarities, target_indices)
+            else:
+                x = agent_b.external_token_embedding(words)
+                reconstructed_imgs, recons = agent_b.forward_image_decoder(x, return_recons=True)
+                criterion = nn.MSELoss()
+                m2_loss = criterion(reconstructed_imgs, imgs) 
             m2_loss.backward()
             
             # ===== Agent A (Sender): Compute loss based on training mode =====
@@ -542,7 +645,7 @@ def train_mutual_play(
                 # Add language preservation loss if specified (only for VQ-based agents)
                 if preserve_language and 'discretized' in sender_result:
                     # Self-play contrastive loss for agent A
-                    img_repr_a = agent_a.forward_image_encoder(imgs)
+                    img_repr_a, _ = agent_a.forward_image_encoder(imgs)
                     text_repr_a = agent_a.forward_text_perception(sender_result['discretized'])
                     agent_a_similarities = pairwise_cosine_similarity(text_repr_a, img_repr_a) / contrastive_loss_temperature
                     
@@ -558,6 +661,9 @@ def train_mutual_play(
                     metrics['agent_a_self_play_correct'] += (agent_a_similarities.argmax(-1) == target_indices).sum().item()
                 else:
                     m1_loss.backward()
+                    
+                if iter % 100 == 0:
+                    utils.show_recons(imgs, reconstructed_imgs, recons,idx=0)
             
             optimizer.step()
             lr_scheduler.step()
@@ -587,12 +693,16 @@ def train_mutual_play(
             global_step = epoch_num * len(train_loader) + iter_num
             writer.add_scalar("Accuracy/train", metrics['correct'] / metrics['total'], global_step)
         
+        if not refrential:
+            utils.show_reconstruction(imgs, reconstructed_imgs, idx=0)
+        
         # ===== Validation Phase =====
         agent_a.eval()
         agent_b.eval()
         
         val_correct = 0
         val_total = 0
+        val_acc = 0
         
         with torch.no_grad():
             for imgs, labels in tqdm(val_loader, desc="Validation"):
@@ -600,8 +710,9 @@ def train_mutual_play(
                 batch_size = imgs.shape[0]
                 
                 # Generate messages and compute similarities
+                x, _ = agent_a.forward_image_encoder(imgs)
                 sender_result = agent_a.forward_text_generation(
-                    imgs, 
+                    x, 
                     message_length=message_length[-1], 
                     mode='discrete',
                     freeze_codebook=freeze_codebook, 
@@ -610,17 +721,21 @@ def train_mutual_play(
                 
                 words = sender_result['indices']
                 listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
-                listener_objects_repr = agent_b.forward_image_encoder(imgs)
-                similarities = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) 
+                if refrential:
+                    listener_objects_repr, _ = agent_b.forward_image_encoder(imgs)
+                    similarities = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) 
                 
-                val_correct += (similarities.argmax(-1) == torch.arange(batch_size, device=device)).sum().item()
-                val_total += batch_size
-        
+                    val_correct += (similarities.argmax(-1) == torch.arange(batch_size, device=device)).sum().item()
+                    val_total += batch_size
+                else:
+                    x = agent_b.external_token_embedding(words)
+                    reconstructed_imgs = agent_b.forward_image_decoder(x)
+                    criterion = nn.MSELoss()
+                    val_loss = criterion(reconstructed_imgs, imgs)
+                    val_total += val_loss.item()
         agent_a.train()
         agent_b.train()
         
-        val_acc = val_correct / val_total
-        logger.info(f'Validation accuracy: {val_acc:.3f}')
         
         # Save checkpoint
         save_checkpoint(
@@ -633,28 +748,51 @@ def train_mutual_play(
             val_acc=val_acc
         )
         
-        # Update best model if improved
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            best_model_state = {
-                'agent_a': copy.deepcopy(agent_a.state_dict()),
-                'agent_b': copy.deepcopy(agent_b.state_dict()),
-                'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
-                'epoch': epoch_num
-            }
-            save_checkpoint(
-                epoch=epoch_num,
-                agent_a=agent_a,
-                agent_b=agent_b,
-                optimizer=optimizer,
-                lr_scheduler=lr_scheduler,
-                is_best=True,
-                val_acc=val_acc
-            )
-            logger.info(f'New best validation accuracy: {best_val_acc:.3f}')
-
+        if refrential:
+            # Update best model if improved
+            val_acc = val_correct / val_total
+            logger.info(f'Validation accuracy: {val_acc:.3f}')
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                best_model_state = {
+                    'agent_a': copy.deepcopy(agent_a.state_dict()),
+                    'agent_b': copy.deepcopy(agent_b.state_dict()),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'epoch': epoch_num
+                }
+                save_checkpoint(
+                    epoch=epoch_num,
+                    agent_a=agent_a,
+                    agent_b=agent_b,
+                    optimizer=optimizer,
+                    lr_scheduler=lr_scheduler,
+                    is_best=True,
+                    val_acc=val_acc
+                )
+                logger.info(f'New best validation accuracy: {best_val_acc:.3f}')
+        else:
+            val_loss = val_total / len(val_loader)
+            logger.info(f'Validation loss: {val_loss:.5f}')
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_model_state = {
+                    'agent_a': copy.deepcopy(agent_a.state_dict()),
+                    'agent_b': copy.deepcopy(agent_b.state_dict()),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'epoch': epoch_num
+                }
+                save_checkpoint(
+                    epoch=epoch_num,
+                    agent_a=agent_a,
+                    agent_b=agent_b,
+                    optimizer=optimizer,
+                    lr_scheduler=lr_scheduler,
+                    is_best=True,
+                    val_acc=val_loss
+                )
+                logger.info(f'New best validation loss: {best_val_loss:.5f}')
     writer.close()
     
     return best_model_state, best_val_acc
-

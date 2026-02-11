@@ -109,7 +109,15 @@ class MNIST(Dataset):
         return len(self.data["images"])
     
     def __getitem__(self, idx): 
-        return self.data["images"][idx].permute(1, 2, 0), self.data["labels"][idx]
+        img = self.data["images"][idx].permute(1, 2, 0)
+        img = img.repeat(1, 1, 3)  # (B, 3, 28, 56)
+        # Zero out channels selectively
+        # LEFT digit (columns 0:28) → RED
+        img[:, :28, 1:] = 0   # keep R, zero G & B
+        # RIGHT digit (columns 28:56) → BLUE
+        img[:, 28:,:2] = 0   # keep B, zero R & G
+            
+        return img, self.data["labels"][idx]
 
 def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
     def save_dataset(dataset, path):
