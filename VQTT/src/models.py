@@ -18,9 +18,13 @@ class AbstractAgent(ABC, nn.Module):
     This class can act as a placeholder and can be expanded with environment interaction,
     action selection, and learning logic as needed.
     """
-    def __init__(self) -> None:
+    def __init__(self, hidden_dim: int=1024, tau_0: float=0.1, gumbel: bool=False) -> None:
         super(AbstractAgent, self).__init__()
-        pass
+        
+        self.hidden_dim = hidden_dim
+        self.tau_0 = tau_0
+        if gumbel:
+            self.inv_tau_mlp = torch.nn.Linear(hidden_dim, 1)
 
     def forward_image_encoder(self, x) -> Any:
         pass
@@ -33,10 +37,33 @@ class AbstractAgent(ABC, nn.Module):
 
     def forward_external_text_perception(self, x) -> Any:
         pass
+    
+    def compute_temperature(self, h: torch.Tensor, eval=False) -> torch.Tensor:
+        """
+        h: [B, L, H] sender hidden states
+        returns tau: [B, L, 1]
+
+        During eval mode, gradients are not computed.
+        """
+        if eval:
+            with torch.no_grad():
+                inv_tau = torch.log1p(
+                    torch.exp(self.inv_tau_mlp(h))
+                ) + self.tau_0
+                tau = 1.0 / inv_tau
+            return tau
+
+        inv_tau = torch.log1p(
+            torch.exp(self.inv_tau_mlp(h))
+        ) + self.tau_0
+
+        tau = 1.0 / inv_tau
+        return tau
+    
 
 class BaselineAgent(AbstractAgent):
-    def __init__(self, input_dim: int, representation_dim: int, vocab_size: int, object_encoder: nn.Module) -> None:
-        super(BaselineAgent, self).__init__()
+    def __init__(self, input_dim: int, representation_dim: int, vocab_size: int, object_encoder: nn.Module, tau_0: float=1.0, gumbel: bool=False) -> None:
+        super(BaselineAgent, self).__init__(tau_0=tau_0, hidden_dim=representation_dim, gumbel=gumbel)
         self.input_dim = input_dim
         self.representation_dim = representation_dim
         #### ConvNet
@@ -87,6 +114,7 @@ class BaselineAgent(AbstractAgent):
         x = einops.repeat(x, 'b d -> b l d', l=1) 
         generated_andices = []
         logit_scores = []
+        hidden_states = []
         batch_size = x.shape[0]
         h = torch.zeros(1, batch_size, self.representation_dim).to(next(self.parameters()).device)
         h[0, :, :] = x[:, 0, :]
@@ -95,12 +123,13 @@ class BaselineAgent(AbstractAgent):
             x, h = self.text_generation_gru(x, h)
             last_hidden_state = x[:, -1:, :]
             logit_score = self.vocab_logits(self.text_generation_gru_head(last_hidden_state))
-            logit_score = F.softmax(logit_score/sampling_temperature, dim=2)
             logit_scores.append(logit_score)
+            logit_score = F.softmax(logit_score/sampling_temperature, dim=2)
             next_word = Categorical(logit_score).sample()
             next_word_embeddings = self.text_generation_word_embedding(next_word)
             x = next_word_embeddings
             generated_andices.append(next_word)
+            hidden_states.append(h[0])
         # Concatenate tensors along dimension 1
         generated_andices = torch.cat(generated_andices, dim=1) 
         logit_scores = torch.cat(logit_scores, dim=1)# 1 is because l in [b, l, score]
@@ -109,7 +138,9 @@ class BaselineAgent(AbstractAgent):
         # BaselineAgent only returns required fields (no VQ-specific fields)
         return {
             'indices': generated_andices,
-            'words_logits': logit_scores
+            'words_logits': logit_scores,
+            'hidden_states': torch.stack(hidden_states, dim=1)
+
         }
     
     def forward_external_text_perception(self, x):
@@ -123,7 +154,10 @@ class BaselineAgent(AbstractAgent):
         - torch.Tensor: Output representation tensor of shape (batch_size, representation_dim).
         """
         batch_size = x.shape[0]
-        x = self.external_token_embedding(x)
+        if x.dim() == 2:
+            x = self.external_token_embedding(x)
+        else:
+            x = torch.matmul(x, self.external_token_embedding.weight)
         h = torch.zeros(1, batch_size, self.representation_dim).to(next(self.parameters()).device)
         x, h = self.text_perception_gru(x, h)
         x = x[:, -1, :]
@@ -133,8 +167,8 @@ class BaselineAgent(AbstractAgent):
 
 
 class VQELAgent(AbstractAgent):
-    def __init__(self, input_dim: int, representation_dim: int, threshold_ema_dead_code, vocab_size: int, object_encoder: nn.Module, decay=0.97, commitment_weight=0.25, orthogonal_reg_weight=0, use_cosine_sim=False):
-        super(VQELAgent, self).__init__()
+    def __init__(self, input_dim: int, representation_dim: int, threshold_ema_dead_code, vocab_size: int, object_encoder: nn.Module, decay=0.97, commitment_weight=0.25, orthogonal_reg_weight=0, use_cosine_sim=False, gumbel: bool=False) -> None:
+        super(VQELAgent, self).__init__(gumbel=gumbel)
         self.input_dim = input_dim
         self.use_cosine_sim = use_cosine_sim
         self.representation_dim = representation_dim
@@ -332,9 +366,11 @@ class VQELAgent(AbstractAgent):
         batch_size = x.shape[0]
         device = next(self.parameters()).device
         
-        # Embed tokens
-        x = self.external_token_embedding(x)
-        
+        # Embed tokens        
+        if x.dim() == 2:
+            x = self.external_token_embedding(x)
+        else:
+            x = torch.matmul(x, self.external_token_embedding.weight)
         # Initialize hidden state
         h = torch.zeros(1, batch_size, self.representation_dim, device=device)
         
