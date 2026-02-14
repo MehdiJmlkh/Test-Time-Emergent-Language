@@ -17,6 +17,25 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import random
+from utils import compute_contrastive_loss, compute_corrects
+
+def st_gumbel_softmax(
+    logits: torch.Tensor,
+    temperature: float,
+    dim: int = -1
+) -> torch.Tensor:
+    """
+    Straight-through Gumbel-Softmax.
+    Forward: hard one-hot
+    Backward: soft sample
+    """
+    y_hard = F.gumbel_softmax(
+        logits,
+        tau=temperature,
+        hard=True,
+        dim=dim
+    )
+    return y_hard
 
 
 def train_agents_baseline_reinforce(
@@ -34,7 +53,8 @@ def train_agents_baseline_reinforce(
     contrastive_loss_temperature: float = 0.1,
     ckpt_dir: str = "checkpoints", 
     tensorboard_writer: Optional[SummaryWriter] = None, 
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
+    gumbel=False
 ) -> Tuple[float, Optional[Dict[str, Any]]]:
     """
     Train the agents using REINFORCE algorithm.
@@ -106,11 +126,31 @@ def train_agents_baseline_reinforce(
             optimizer.zero_grad()
             imgs = imgs.to(device)
             sender_result = agent_a.forward_text_generation(imgs, message_length=random.choice(message_length), sampling_temperature=sampling_temperature)
-            words = sender_result['indices']
             sender_words_logits = sender_result['words_logits']
-            probs = sender_words_logits
             #####
-            listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
+            if gumbel:
+                # sender_words_logits: [B, L, V]
+                batch_size, msg_len, vocab_size = sender_words_logits.shape
+                # ST Gumbel-Softmax
+                hidden_states = sender_result["hidden_states"]          # [B, L, H]
+
+                # Learned temperature τ(h)
+                tau = agent_a.compute_temperature(hidden_states)        # [B, L, 1]
+                gumbel_onehot = st_gumbel_softmax(
+                    sender_words_logits,
+                    temperature=tau,
+                    dim=-1
+                )
+                # Discrete symbols for communication
+                words = gumbel_onehot.argmax(dim=-1)  # [B, L]
+            else:
+                words = sender_result['indices']
+            
+            probs = F.softmax(sender_words_logits/sampling_temperature, dim=-1)
+            if gumbel:
+                listener_messages_repr = agent_b.forward_external_text_perception(gumbel_onehot).squeeze(1)
+            else:
+                listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
             #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
             similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
@@ -134,7 +174,8 @@ def train_agents_baseline_reinforce(
             m1_loss = -torch.mean(returns.unsqueeze(1) * log_probs.squeeze(-1)) #+ sender_result['commit_loss']
             entropy_loss = -Categorical(F.softmax(sender_words_logits, dim=2)).entropy().mean()
             m1_loss = m1_loss + entropy_regularization_factor*entropy_loss
-            m1_loss.backward()
+            if not gumbel:
+                m1_loss.backward()
             optimizer.step()
             lr_scheduler.step()
             ###
@@ -156,7 +197,19 @@ def train_agents_baseline_reinforce(
             imgs = imgs.to(device)
             sender_result = agent_a.forward_text_generation(imgs, message_length=message_length[-1], sampling_temperature=1e-5)
             words = sender_result['indices']
-            listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
+                
+            hidden_states = sender_result["hidden_states"]
+            tau = agent_a.compute_temperature(hidden_states, eval=True)
+                
+            gumbel_onehot = st_gumbel_softmax(
+                    sender_result['words_logits'],
+                    temperature=tau,
+                    dim=-1
+            )
+            if gumbel:
+                listener_messages_repr = agent_b.forward_external_text_perception(gumbel_onehot).squeeze(1)
+            else:
+                listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
             #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
             similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr)
