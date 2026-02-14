@@ -8,45 +8,43 @@ from PIL import Image
 import math
 import os
 import pickle
-
-
+from torch.utils.data import Dataset
+import torch
+import torch.nn.functional as F
+from itertools import product
+from solve_min_sym import min_m_controlled_sampling
+        
 class ObjectsDataset(Dataset):
-    """
-    Dataset that generates one-hot encoded attribute vectors for all possible combinations.
-    Each sample represents a n-attribute object where each attribute can take d different values.
-    """
-    
-    def __init__(self, num_attributes=4, num_values=10):
+    def __init__(self, num_attributes=4, num_values=10, indices=None, min_symbol=2, batch_size=32):
         self.num_attributes = num_attributes
         self.num_values = num_values
-
-    def __len__(self):
-        return self.num_values ** self.num_attributes
-
-    def __getitem__(self, idx):
-        """
-        Generate one-hot encoded representation for the given index.
+        self.data = dict(enumerate(product(range(num_values), repeat=num_attributes)))
         
-        Args:
-            idx: Index representing a unique combination of attribute values
+        if indices is None:
+            indices = list(self.data.keys())
+        
+        self.data = {i: self.data[k] for i, k in enumerate(indices)}
+        
+        self.candidates = min_m_controlled_sampling(
+            [(self.data[k], k) for k in self.data.keys()],
+            number_of_samples=len(self.data),
+            target_min_symbol=min_symbol,
+            batch_size=batch_size
+        )
+
             
-        Returns:
-            tuple: (concatenated one-hot vectors, original index)
-        """
-        # Create one-hot vectors for each attribute
-        attributes = []
-        temp_idx = idx
-        
-        for _ in range(self.num_attributes):
-            attribute_vector = torch.zeros(self.num_values)
-            attribute_vector[temp_idx % self.num_values] = 1
-            attributes.append(attribute_vector)
-            temp_idx //= self.num_values
-        
-        # Concatenate all attribute vectors
-        combined_attributes = torch.cat(attributes)
-        
-        return combined_attributes, idx
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        return self.__to_one_hot(torch.tensor(self.data[idx])), idx
+    
+    def get_candidates(self):
+        return self.candidates
+    
+    def __to_one_hot(self, x):
+        one_hot = F.one_hot(x, num_classes=self.num_values)
+        return one_hot.flatten().float()  
 
 
 class DSprites(Dataset):
