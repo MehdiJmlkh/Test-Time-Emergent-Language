@@ -52,7 +52,54 @@ def pairwise_cosine_similarity(x1, x2):
     
     return similarity_matrix
 
+def compute_contrastive_loss(msg_repr, img_repr, contrastive_loss_temperature, candidates=None, device='cuda'):
+    if candidates == None:
+        similarities_messages_to_objects = pairwise_cosine_similarity(msg_repr, img_repr) / contrastive_loss_temperature
+        contrastive_loss = F.cross_entropy(
+            similarities_messages_to_objects, 
+            torch.arange(img_repr.shape[0], device=device)
+        )
+    else:
+        total_loss = 0.0
+        num_samples = 0
+        for i, candidate_indices in candidates.items():
+            msg_i = msg_repr[i].unsqueeze(0)
 
+            img_candidates = img_repr[candidate_indices]
+
+            similarities = pairwise_cosine_similarity(
+                msg_i, 
+                img_candidates
+            ) / contrastive_loss_temperature
+
+            target_position = candidate_indices.index(i)
+            target = torch.tensor([target_position], device=device)
+            loss_i = F.cross_entropy(similarities, target)
+
+            total_loss += loss_i
+            num_samples += 1
+
+        contrastive_loss = total_loss / num_samples
+
+    return contrastive_loss
+
+def compute_corrects(msg_repr, img_repr, candidates=None):
+    if candidates == None:
+        predicted_labels = pairwise_cosine_similarity(msg_repr, img_repr).argmax(1).cpu()
+        corrects = (predicted_labels == torch.arange(img_repr.shape[0])).sum().item()
+    else:
+        corrects = 0
+        for i, candidate_indices in candidates.items():
+            msg_i = msg_repr[i].unsqueeze(0)
+
+            img_candidates = img_repr[candidate_indices]
+
+            predicted_label = pairwise_cosine_similarity(msg_i, img_candidates).argmax().cpu().item()
+            target_position = candidate_indices.index(i)
+            corrects += (predicted_label == target_position)
+
+    return corrects
+        
 def evaluate_self_communicate(agent, test_dataset, device, message_length, number_of_candidates=100, batch_sampler=None, collate_fn=None):
     """Evaluate agent's ability to match images with their emergent language representations"""
     total_correct_matches = 0
