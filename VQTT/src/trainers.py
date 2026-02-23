@@ -17,7 +17,7 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import random
-from utils import compute_contrastive_loss, compute_corrects
+from utils import compute_contrastive_loss, compute_corrects, compute_rewards
 
 def st_gumbel_softmax(
     logits: torch.Tensor,
@@ -153,13 +153,14 @@ def train_agents_baseline_reinforce(
                 listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
             #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
-            similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
-            m2_loss = F.cross_entropy(similarities_messages_to_objects, torch.arange(0, batch_size).to(device))
+            # similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
+            # m2_loss = F.cross_entropy(similarities_messages_to_objects, torch.arange(0, batch_size).to(device))
+            m2_loss = compute_contrastive_loss(listener_messages_repr, listener_objects_repr, contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
             m2_loss.backward()
             ###
-            rewards = -1*F.cross_entropy(similarities_messages_to_objects, torch.arange(0, batch_size).to(device), reduction='none').detach()
+            rewards = compute_rewards(listener_messages_repr, listener_objects_repr, contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
             #rewards = (similarities_messages_to_objects.argmax(-1) == torch.arange(0, batch_size).to(device)).float()
-            reward_deque.append(rewards.detach().cpu().numpy())
+            # reward_deque.append(rewards.detach().cpu().numpy())
             avg_reward: float = float(np.mean(reward_deque))
             #####
             log_probs = torch.log(torch.gather(probs, -1, words.unsqueeze(-1)))
@@ -179,8 +180,9 @@ def train_agents_baseline_reinforce(
             optimizer.step()
             lr_scheduler.step()
             ###
-            total_correct += (similarities_messages_to_objects.argmax(-1) == torch.arange(0, batch_size).to(device)).sum().item()
-            total_ins += len(imgs)
+            corrects, total = compute_corrects(listener_messages_repr, listener_objects_repr, idx=labels)
+            total_correct += corrects
+            total_ins += total
             total_m1_loss += m1_loss.item()
             total_m2_loss += m2_loss.item()
             progress_bar.set_postfix(
@@ -212,9 +214,10 @@ def train_agents_baseline_reinforce(
                 listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
             #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
-            similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr)
-            total_correct += (similarities_messages_to_objects.argmax(-1) == torch.arange(0, batch_size).to(device)).sum().item()
-            total_ins += len(imgs)
+            # similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr)
+            corrects, total = compute_corrects(listener_messages_repr, listener_objects_repr, idx=labels)
+            total_correct += corrects
+            total_ins += total
         val_acc: float = total_correct / total_ins
         logger.info(f'val accuracy: {round(val_acc, 3)}')
     
@@ -347,12 +350,8 @@ def train_self_play(
             )
             text_repr = agent.forward_text_perception(text_generation_result['discretized'])
             
-            # Compute contrastive loss
-            similarities_messages_to_objects = pairwise_cosine_similarity(text_repr, img_repr) / contrastive_loss_temperature
-            contrastive_loss = F.cross_entropy(
-                similarities_messages_to_objects, 
-                torch.arange(imgs.shape[0], device=device)
-            )
+            contrastive_loss = compute_contrastive_loss(text_repr, img_repr,
+                contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
             
             # Total loss with commitment and entropy regularization
             loss = contrastive_loss + text_generation_result['commit_loss']
@@ -372,15 +371,14 @@ def train_self_play(
             total_commit_loss += text_generation_result['commit_loss'].item()
             
             # Compute accuracy
-            predicted_labels = pairwise_cosine_similarity(text_repr, img_repr).argmax(1).cpu()
-            total_corrects += (predicted_labels == torch.arange(imgs.shape[0])).sum().item()
-            
+            corrects, total = compute_corrects(text_repr, img_repr, labels)
+            total_corrects += corrects
             # Update progress bar
             progress_bar.set_postfix(
                 loss=f"{loss.item():.4f}",
                 contrastive_loss=f"{total_contrastive_loss / (iter_num + 1):.4f}",
                 commit_loss=f"{total_commit_loss / (iter_num + 1):.4f}",
-                acc=f"{total_corrects / ((iter_num + 1) * imgs.shape[0]):.4f}"
+                acc=f"{total_corrects / ((iter_num + 1) * total):.4f}"
             )
             progress_bar.refresh()
         
@@ -389,7 +387,7 @@ def train_self_play(
         total_instances = 0
         
         with torch.no_grad():
-            for imgs, _ in tqdm(val_loader, desc="Validation"):
+            for imgs, labels in tqdm(val_loader, desc="Validation"):
                 imgs = imgs.to(device)
                 
                 # Forward pass
@@ -404,9 +402,9 @@ def train_self_play(
                 text_repr = agent.forward_text_perception(text_generation_result['discretized'])
                 
                 # Compute accuracy
-                predicted_labels = pairwise_cosine_similarity(text_repr, img_repr).argmax(1).cpu()
-                total_correct += (predicted_labels == torch.arange(imgs.shape[0])).sum().item()
-                total_instances += imgs.shape[0]
+                corrects, total = compute_corrects(text_repr, img_repr, labels)
+                total_correct += corrects
+                total_instances += total
         
         # Update best model if validation accuracy improved
         val_acc = total_correct / total_instances
@@ -557,7 +555,8 @@ def train_mutual_play(
             # Compute receiver loss (cross-entropy on similarity matrix)
             similarities = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
             target_indices = torch.arange(batch_size, device=device)
-            m2_loss = F.cross_entropy(similarities, target_indices)
+            m2_loss = compute_contrastive_loss(listener_messages_repr, listener_objects_repr,
+                contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
             m2_loss.backward()
             
             # ===== Agent A (Sender): Compute loss based on training mode =====
@@ -620,8 +619,9 @@ def train_mutual_play(
             metrics['m2_loss'] += m2_loss.item()
             if 'commit_loss' in sender_result:
                 metrics['commit_loss'] += sender_result['commit_loss'].item()
-            metrics['correct'] += (similarities.argmax(-1) == target_indices).sum().item()
-            metrics['total'] += batch_size
+            corrects, total = compute_corrects(listener_messages_repr, listener_objects_repr, idx=labels)
+            metrics['correct'] += corrects
+            metrics['total'] += total
             
             # Update progress bar
             postfix = {
@@ -664,10 +664,9 @@ def train_mutual_play(
                 words = sender_result['indices']
                 listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
                 listener_objects_repr = agent_b.forward_image_encoder(imgs)
-                similarities = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) 
-                
-                val_correct += (similarities.argmax(-1) == torch.arange(batch_size, device=device)).sum().item()
-                val_total += batch_size
+                corrects, total = compute_corrects(listener_messages_repr, listener_objects_repr, idx=labels)
+                val_correct += corrects
+                val_total += total
         
         agent_a.train()
         agent_b.train()

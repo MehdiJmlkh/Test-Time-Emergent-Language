@@ -52,54 +52,67 @@ def pairwise_cosine_similarity(x1, x2):
     
     return similarity_matrix
 
-def compute_contrastive_loss(msg_repr, img_repr, contrastive_loss_temperature, candidates=None, device='cuda'):
-    if candidates == None:
-        similarities_messages_to_objects = pairwise_cosine_similarity(msg_repr, img_repr) / contrastive_loss_temperature
-        contrastive_loss = F.cross_entropy(
-            similarities_messages_to_objects, 
-            torch.arange(img_repr.shape[0], device=device)
+
+def compute_contrastive_loss(msg_repr, img_repr, contrastive_loss_temperature, idx=None, device='cuda'):
+    if isinstance(idx, torch.Tensor):
+        similarities_messages_to_objects = pairwise_cosine_similarity(msg_repr, img_repr) / contrastive_loss_temperature 
+        contrastive_loss = F.cross_entropy( 
+            similarities_messages_to_objects, torch.arange(img_repr.shape[0], device=device)
         )
+
     else:
-        total_loss = 0.0
-        num_samples = 0
-        for i, candidate_indices in candidates.items():
-            msg_i = msg_repr[i].unsqueeze(0)
+        msg_i = msg_repr[idx].unsqueeze(0)
 
-            img_candidates = img_repr[candidate_indices]
+        similarities = pairwise_cosine_similarity(msg_i, img_repr) / contrastive_loss_temperature
 
-            similarities = pairwise_cosine_similarity(
-                msg_i, 
-                img_candidates
-            ) / contrastive_loss_temperature
-
-            target_position = candidate_indices.index(i)
-            target = torch.tensor([target_position], device=device)
-            loss_i = F.cross_entropy(similarities, target)
-
-            total_loss += loss_i
-            num_samples += 1
-
-        contrastive_loss = total_loss / num_samples
-
+        target = torch.tensor([idx], device=device)
+            
+        contrastive_loss = F.cross_entropy(
+            similarities,
+            target
+        )
     return contrastive_loss
 
-def compute_corrects(msg_repr, img_repr, candidates=None):
-    if candidates == None:
-        predicted_labels = pairwise_cosine_similarity(msg_repr, img_repr).argmax(1).cpu()
-        corrects = (predicted_labels == torch.arange(img_repr.shape[0])).sum().item()
+def compute_corrects(msg_repr, img_repr, idx=None):
+    if isinstance(idx, torch.Tensor):
+        predicted_labels = pairwise_cosine_similarity(
+            msg_repr, img_repr
+        ).argmax(1).cpu()
+
+        corrects = (
+            predicted_labels == torch.arange(img_repr.shape[0])
+        ).sum().item()
+
+        total = img_repr.shape[0]
+
     else:
-        corrects = 0
-        for i, candidate_indices in candidates.items():
-            msg_i = msg_repr[i].unsqueeze(0)
-
-            img_candidates = img_repr[candidate_indices]
-
-            predicted_label = pairwise_cosine_similarity(msg_i, img_candidates).argmax().cpu().item()
-            target_position = candidate_indices.index(i)
-            corrects += (predicted_label == target_position)
-
-    return corrects
+        msg_i = msg_repr[idx].unsqueeze(0)
         
+        similarities = pairwise_cosine_similarity(
+            msg_i, img_repr
+        )
+        predicted_label = similarities.argmax(dim=1).item()
+        corrects = int(predicted_label == idx)
+        total = 1
+
+    return corrects, total
+
+        
+def compute_rewards(msg_repr, img_repr, contrastive_loss_temperature, idx=None, device='cuda'):
+    if isinstance(idx, torch.Tensor):
+        similarities_messages_to_objects = pairwise_cosine_similarity(msg_repr, img_repr) / contrastive_loss_temperature
+        rewards = -1 * F.cross_entropy(similarities_messages_to_objects, torch.arange(0, img_repr.shape[0]).to(device), reduction='none').detach()
+    else:
+        text_i = msg_repr[idx].unsqueeze(0)
+        similarities = pairwise_cosine_similarity(
+            text_i, 
+            img_repr
+        ) / contrastive_loss_temperature
+        target = torch.tensor([idx], device=device)
+        rewards = -1 * F.cross_entropy(similarities, target, reduction='none').detach()
+    
+    return rewards
+
 def evaluate_self_communicate(agent, test_dataset, device, message_length, number_of_candidates=100, batch_sampler=None, collate_fn=None):
     """Evaluate agent's ability to match images with their emergent language representations"""
     total_correct_matches = 0
@@ -112,7 +125,7 @@ def evaluate_self_communicate(agent, test_dataset, device, message_length, numbe
         test_loader = DataLoader(test_dataset, batch_sampler=batch_sampler, collate_fn=collate_fn)
 
     # Evaluate matching accuracy
-    for images, true_labels in tqdm(test_loader, desc="Evaluating image-text matching"):
+    for images, labels in tqdm(test_loader, desc="Evaluating image-text matching"):
         images = images.to(device)
         
         # Get image representations
@@ -129,15 +142,11 @@ def evaluate_self_communicate(agent, test_dataset, device, message_length, numbe
         
         # Get text representations from generated language
         text_representations = agent.forward_text_perception(text_generation_result['discretized'])
-        
-        # Find best matches between text and image representations
-        similarity_matrix = pairwise_cosine_similarity(text_representations, image_representations)
-        predicted_matches = similarity_matrix.argmax(dim=1).cpu()
-        
+     
         # Count correct matches (diagonal should be highest)
-        correct_matches = (predicted_matches == torch.arange(images.shape[0])).sum().item()
+        correct_matches, total = compute_corrects(text_representations, image_representations, idx=labels)
         total_correct_matches += correct_matches
-        total_samples += len(images)
+        total_samples += total
 
     # Calculate and display accuracy
     matching_accuracy = total_correct_matches / total_samples
@@ -192,19 +201,10 @@ def evaluate_cross_communicate(agent_a, agent_b, test_dataset, device, message_l
             listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
             
-            # Calculate similarity matrix between messages and objects
-            similarities_messages_to_objects = pairwise_cosine_similarity(
-                listener_messages_repr, 
-                listener_objects_repr
-            )
-
-            # Count correct matches (diagonal should be highest)
-            batch_size_actual = imgs.shape[0]
-            predicted_matches = similarities_messages_to_objects.argmax(dim=-1)
-            correct_matches = torch.arange(batch_size_actual, device=device)
+            corrects, total = compute_corrects(listener_messages_repr, listener_objects_repr, idx=labels)
             
-            total_correct += (predicted_matches == correct_matches).sum().item()
-            total_samples += batch_size_actual
+            total_correct += corrects
+            total_samples += total
 
     agent_a.train()
     agent_b.train()
