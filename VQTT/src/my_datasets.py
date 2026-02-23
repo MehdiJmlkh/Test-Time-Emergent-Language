@@ -15,7 +15,7 @@ from itertools import product
 from solve_min_sym import min_m_controlled_sampling
         
 class ObjectsDataset(Dataset):
-    def __init__(self, num_attributes=4, num_values=10, indices=None, min_symbol=2, batch_size=32):
+    def __init__(self, num_attributes=4, num_values=10, indices=None, min_symbol=2, batch_size=32, number_of_samples=None):
         self.num_attributes = num_attributes
         self.num_values = num_values
         self.data = dict(enumerate(product(range(num_values), repeat=num_attributes)))
@@ -27,24 +27,29 @@ class ObjectsDataset(Dataset):
         
         self.candidates = min_m_controlled_sampling(
             [(self.data[k], k) for k in self.data.keys()],
-            number_of_samples=len(self.data),
+            number_of_samples=number_of_samples,
             target_min_symbol=min_symbol,
             batch_size=batch_size
         )
 
+        self.samples = []
+        for target, cand in self.candidates.items():
+            self.samples.append((cand, cand.index(target)))
             
     def __len__(self):
-        return len(self.data)
+        return len(self.samples)
     
     def __getitem__(self, idx):
-        return self.__to_one_hot(torch.tensor(self.data[idx])), idx
+        cands, target_idx = self.samples[idx]
+        one_hots = torch.stack([self.__to_one_hot(torch.tensor(cand)) for cand in cands])
+        return one_hots, target_idx
     
     def get_candidates(self):
         return self.candidates
     
     def __to_one_hot(self, x):
         one_hot = F.one_hot(x, num_classes=self.num_values)
-        return one_hot.flatten().float()  
+        return one_hot.flatten().float()
 
 
 class DSprites(Dataset):
