@@ -89,7 +89,7 @@ class ShapeWorld(Dataset):
         return self.imgs.shape[0]
 
     def __getitem__(self, idx):
-        return torch.tensor(self.imgs[idx]), idx
+        return torch.tensor(self.imgs[idx]), torch.tensor(1).to(device='cuda')
     
 
 class CelebA(Dataset):
@@ -112,7 +112,7 @@ class MNIST(Dataset):
         return len(self.data["images"])
     
     def __getitem__(self, idx): 
-        return self.data["images"][idx].permute(1, 2, 0), self.data["labels"][idx]
+        return self.data["images"][idx].permute(1, 2, 0), torch.tensor(1).to(device='cuda')
 
 def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
     def save_dataset(dataset, path):
