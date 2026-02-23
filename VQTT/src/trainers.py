@@ -201,14 +201,14 @@ def train_agents_baseline_reinforce(
             words = sender_result['indices']
                 
             hidden_states = sender_result["hidden_states"]
-            tau = agent_a.compute_temperature(hidden_states, eval=True)
-                
-            gumbel_onehot = st_gumbel_softmax(
-                    sender_result['words_logits'],
-                    temperature=tau,
-                    dim=-1
-            )
             if gumbel:
+                tau = agent_a.compute_temperature(hidden_states, eval=True)
+                    
+                gumbel_onehot = st_gumbel_softmax(
+                        sender_result['words_logits'],
+                        temperature=tau,
+                        dim=-1
+                )
                 listener_messages_repr = agent_b.forward_external_text_perception(gumbel_onehot).squeeze(1)
             else:
                 listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
