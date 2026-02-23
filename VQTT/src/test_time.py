@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 from utils import pairwise_cosine_similarity
 from tqdm.auto import tqdm
+from utils import compute_contrastive_loss, compute_corrects
 
 
 def test_time_scaling(agent, sample, message_length=4, n=10, sampling_temperature=1e-1):
@@ -146,12 +147,7 @@ def test_time_dataset_adaptation(
             )
             text_repr = agent_clone.forward_text_perception(text_generation_result['discretized'])
             
-            # Compute contrastive loss
-            similarities_messages_to_objects = pairwise_cosine_similarity(text_repr, img_repr) / contrastive_loss_temperature
-            contrastive_loss = F.cross_entropy(
-                similarities_messages_to_objects, 
-                torch.arange(imgs.shape[0], device=device)
-            )
+            contrastive_loss = compute_contrastive_loss(text_repr, img_repr, contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
             
             # Total loss with commitment and entropy regularization
             loss = contrastive_loss + text_generation_result['commit_loss']
@@ -169,16 +165,15 @@ def test_time_dataset_adaptation(
             total_contrastive_loss += contrastive_loss.item()
             total_commit_loss += text_generation_result['commit_loss'].item()
             
-            # Compute accuracy
-            predicted_labels = pairwise_cosine_similarity(text_repr, img_repr).argmax(1).cpu()
-            total_corrects += (predicted_labels == torch.arange(imgs.shape[0])).sum().item()
+            corrects, total = compute_corrects(text_repr, img_repr, idx=labels)
+            total_corrects += corrects
             
             # Update progress bar
             progress_bar.set_postfix(
                 loss=f"{loss.item():.4f}",
                 contrastive_loss=f"{total_contrastive_loss / (iter_num + 1):.4f}",
                 commit_loss=f"{total_commit_loss / (iter_num + 1):.4f}",
-                acc=f"{total_corrects / ((iter_num + 1) * imgs.shape[0]):.4f}"
+                acc=f"{total_corrects / ((iter_num + 1) * total):.4f}"
             )
             progress_bar.refresh()
             
@@ -189,6 +184,7 @@ def test_time_batch_adaptation(
     lr, 
     num_epochs, 
     message_length, 
+    labels=None,
     sampling_temperature=1e-5, 
     entropy_factor=0, 
     contrastive_loss_temperature=0.1, 
@@ -218,12 +214,13 @@ def test_time_batch_adaptation(
         )
         text_repr = agent_clone.forward_text_perception(text_generation_result['discretized'])
         
-        # Compute contrastive loss
-        similarities_messages_to_objects = pairwise_cosine_similarity(text_repr, img_repr) / contrastive_loss_temperature
-        contrastive_loss = F.cross_entropy(
-            similarities_messages_to_objects, 
-            torch.arange(imgs.shape[0], device=device)
-        )
+        # # Compute contrastive loss
+        # similarities_messages_to_objects = pairwise_cosine_similarity(text_repr, img_repr) / contrastive_loss_temperature
+        # contrastive_loss = F.cross_entropy(
+        #     similarities_messages_to_objects, 
+        #     torch.arange(imgs.shape[0], device=device)
+        # )
+        contrastive_loss = compute_contrastive_loss(text_repr, img_repr, contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
         
         # Total loss with commitment and entropy regularization
         loss = contrastive_loss + text_generation_result['commit_loss']
