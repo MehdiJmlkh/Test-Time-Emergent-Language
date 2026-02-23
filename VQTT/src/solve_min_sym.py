@@ -66,6 +66,6 @@ def min_m_controlled_sampling(dataset, number_of_samples, target_min_symbol, bat
         min_symbol = SolveMinSym(target_value, batch_values)
         
         if min_symbol == target_min_symbol:
-            result.append({target_index: batch_indices})
+            result.append({target_value: batch_values})
 
     return reduce(operator.or_, result)
