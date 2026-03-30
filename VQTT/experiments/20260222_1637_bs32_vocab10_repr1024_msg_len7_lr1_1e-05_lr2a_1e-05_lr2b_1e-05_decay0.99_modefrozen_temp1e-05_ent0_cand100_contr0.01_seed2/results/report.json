@@ -5,7 +5,8 @@
         "self_play_accuracy_b": 0.0,
         "mutual_play_accuracy": 0.842,
         "test_time_self_play_accuracy": 0.0,
-        "test_time_training_accuracy": 0.377
+        "test_time_training_accuracy": 0.377,
+        "unique_messages": 1358
     },
     "config": {
         "gumbel": true,
