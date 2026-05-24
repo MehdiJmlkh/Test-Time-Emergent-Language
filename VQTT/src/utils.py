@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import torch
 import pickle
+from numpy.linalg import norm
 
 
 def set_seed(seed):
@@ -211,6 +212,100 @@ def evaluate_cross_communicate(agent_a, agent_b, test_dataset, device, message_l
 
     test_accuracy = total_correct / total_samples
     return test_accuracy
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from tqdm import tqdm
+from torch.utils.data import DataLoader
+
+# We can replace your custom cosine_sim with PyTorch's built in F.cosine_similarity
+# for massive speedups when doing the permutation test.
+
+def evaluate_cosine_sim_between_text_perceptions(agent_a, agent_b, test_dataset, device, message_length, batch_size=100, num_workers=0, batch_sampler=None, collate_fn=None, num_permutations=1000):
+    if batch_sampler is None:
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn)
+    else:
+        test_loader = DataLoader(test_dataset, batch_sampler=batch_sampler, collate_fn=collate_fn)
+
+    agent_a.eval()
+    agent_b.eval()
+
+    # Store all representations to compute global significance at the end
+    all_repr_a = []
+    all_repr_b = []
+    
+    with torch.no_grad():
+        for iter_num, (imgs, labels) in enumerate(tqdm(test_loader, desc="Evaluating")):
+            imgs = imgs.to(device)
+            
+            text_generation_result = agent_a.forward_text_generation(
+                imgs, 
+                message_length=message_length, 
+                freeze_codebook=True, 
+                mode='discrete', 
+                sampling_temperature=1e-5
+            )
+            
+            # Squeeze and extract features
+            messages_repr_a = agent_b.forward_external_text_perception_no_head(text_generation_result['indices']).squeeze(1)
+            messages_repr_b = agent_a.forward_text_perception_no_head(text_generation_result['discretized'])
+            
+            # Append batch to our lists (keep them on CPU to save GPU memory if dataset is large)
+            all_repr_a.append(messages_repr_a.cpu())
+            all_repr_b.append(messages_repr_b.cpu())
+
+    agent_a.train()
+    agent_b.train()
+
+    # Concatenate all batches into two large tensors: shape (Total_Samples, Embedding_Dim)
+    tensor_a = torch.cat(all_repr_a, dim=0)
+    tensor_b = torch.cat(all_repr_b, dim=0)
+    
+    num_samples = tensor_a.size(0)
+
+    # 1. Compute True Observed Similarity (Aligned Pairs)
+    # F.cosine_similarity computes row-wise similarity efficiently
+    true_similarities = F.cosine_similarity(tensor_a, tensor_b, dim=1)
+    observed_mean_sim = true_similarities.mean().item()
+
+    # 2. Compute Baseline and p-value via Permutation Test
+    print(f"Running {num_permutations} permutations for p-value calculation...")
+    random_means = []
+    
+    for _ in tqdm(range(num_permutations), desc="Permutations"):
+        # Shuffle the indices of tensor_b to break the alignment
+        shuffled_indices = torch.randperm(num_samples)
+        shuffled_tensor_b = tensor_b[shuffled_indices]
+        
+        # Compute similarity of the mismatched pairs
+        shuffled_sims = F.cosine_similarity(tensor_a, shuffled_tensor_b, dim=1)
+        random_means.append(shuffled_sims.mean().item())
+        
+    random_means = np.array(random_means)
+    
+    # Baseline statistics
+    baseline_mean = np.mean(random_means)
+    baseline_std = np.std(random_means)
+    
+    # Calculate empirical p-value: (Count of random means >= observed mean + 1) / (N + 1)
+    # The +1 is a standard statistical correction to avoid p=0.
+    extreme_count = np.sum(random_means >= observed_mean_sim)
+    p_value = (extreme_count + 1) / (num_permutations + 1)
+
+    print("\n--- Significance Report ---")
+    print(f"Observed Cosine Similarity: {observed_mean_sim:.4f}")
+    print(f"Random Baseline Similarity: {baseline_mean:.4f} ± {baseline_std:.4f}")
+    print(f"p-value: {p_value:.5f}")
+
+    results = {
+        "observed_similarity": observed_mean_sim,
+        "baseline_mean": baseline_mean,
+        "baseline_std": baseline_std,
+        "p_value": p_value
+    }
+
+    return results
 
 
 def load_dataset(path):
