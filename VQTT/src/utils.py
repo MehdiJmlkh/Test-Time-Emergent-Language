@@ -255,7 +255,7 @@ def linear_cka(X, Y):
 
     return numerator / (denom_x * denom_y)
 
-def evaluate_cosine_sim_between_text_perceptions(agent_a, agent_b, test_dataset, device, message_length, batch_size=100, num_workers=0, batch_sampler=None, collate_fn=None, num_permutations=1000):
+def evaluate_similarity_between_text_perceptions(agent_a, agent_b, test_dataset, device, message_length, batch_size=100, num_workers=0, batch_sampler=None, collate_fn=None, num_permutations=1000):
     if batch_sampler is None:
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn)
     else:
