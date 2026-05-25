@@ -5,7 +5,10 @@
         "self_play_accuracy_b": 0.0,
         "mutual_play_accuracy": 0.882,
         "test_time_self_play_accuracy": 0.0,
-        "test_time_training_accuracy": 0.245
+        "test_time_training_accuracy": 0.245,
+        "inference_time": 163.9812774658203,
+        "peak_memory": 95023104,
+        "flops": 4100390400
     },
     "config": {
         "baseline": true,

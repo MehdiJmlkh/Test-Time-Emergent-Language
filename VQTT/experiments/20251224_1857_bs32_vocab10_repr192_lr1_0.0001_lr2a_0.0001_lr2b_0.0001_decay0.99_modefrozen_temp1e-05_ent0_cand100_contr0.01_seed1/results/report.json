@@ -5,7 +5,10 @@
         "self_play_accuracy_b": 0.009,
         "mutual_play_accuracy": 0.895,
         "test_time_self_play_accuracy": 0.464,
-        "test_time_training_accuracy": 0.439
+        "test_time_training_accuracy": 0.439,
+        "inference_time": 187.5572509765625,
+        "peak_memory": 95332864,
+        "flops": 4101196800.0
     },
     "config": {
         "dataset_tt": "mnist2",
