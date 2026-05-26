@@ -8,7 +8,11 @@
         "test_time_training_accuracy": 0.419,
         "inference_time": 264.3071594238281,
         "peak_memory": 601238528,
-        "flops": 677118932.0
+        "flops": 677118932.0,
+        "mp_similarity": 0.941884,
+        "mp_similarity_baseline_mean": 0.006685,
+        "mp_similarity_baseline_std": 0.000747,
+        "mp_similarity_p_value": 0.000999
     },
     "config": {
         "baseline": false,
