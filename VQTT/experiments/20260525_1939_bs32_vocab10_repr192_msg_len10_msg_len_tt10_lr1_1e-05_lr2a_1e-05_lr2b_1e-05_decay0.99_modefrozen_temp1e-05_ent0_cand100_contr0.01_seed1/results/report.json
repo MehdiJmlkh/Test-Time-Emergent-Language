@@ -6,7 +6,7 @@
         "mutual_play_accuracy": 0.895,
         "test_time_self_play_accuracy": 0.677,
         "test_time_training_accuracy": 0.584,
-        "inference_time": 103165.96966648102,
+        "inference_time": 96257.47957777977,
         "peak_memory": 683729408,
         "flops": 17592960000.0
     },
