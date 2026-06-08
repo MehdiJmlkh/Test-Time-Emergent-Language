@@ -114,6 +114,20 @@ class MNIST(Dataset):
     def __getitem__(self, idx): 
         return self.data["images"][idx].permute(1, 2, 0), torch.tensor(1).to(device='cuda')
 
+
+class COCO(Dataset):
+    def __init__(self, mode="train"):
+        data =  torch.load(f"/home/shared/data/coco/coco_dino_{mode}.pt", map_location="cpu")
+        self.embeddings = data["embeddings"]
+        self.path = data["paths"]
+    
+    def __len__(self):
+        return len(self.embeddings)
+    
+    def __getitem__(self, index):
+        return self.embeddings[index], self.path[index]
+
+
 def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
     def save_dataset(dataset, path):
         os.makedirs(path, exist_ok=True)
