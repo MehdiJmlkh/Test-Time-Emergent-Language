@@ -47,12 +47,10 @@ class Dino(nn.Module):
 
 
 class IdentityEncoder(nn.Module):
-    def __init__(self, batch_norm=False):
+    def __init__(self, batch_norm=False, representation_dim=2048):
         super().__init__()
-        self.batch_norm = batch_norm
-        self.bn = nn.BatchNorm1d(2048)
+        self.bn = nn.BatchNorm1d(representation_dim)
     
     def forward(self, x):
-        # if self.batch_norm:
         x = self.bn(x)
         return x
