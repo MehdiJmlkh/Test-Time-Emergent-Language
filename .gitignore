@@ -17,3 +17,5 @@ configs
 output.ipynb
 assets/
 msgs/
+coco/
+!coco/coco.ipynb
