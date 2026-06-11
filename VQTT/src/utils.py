@@ -55,63 +55,30 @@ def pairwise_cosine_similarity(x1, x2):
 
 
 def compute_contrastive_loss(msg_repr, img_repr, contrastive_loss_temperature, idx=None, device='cuda'):
-    if isinstance(idx, torch.Tensor):
-        similarities_messages_to_objects = pairwise_cosine_similarity(msg_repr, img_repr) / contrastive_loss_temperature 
-        contrastive_loss = F.cross_entropy( 
-            similarities_messages_to_objects, torch.arange(img_repr.shape[0], device=device)
-        )
+    similarities_messages_to_objects = pairwise_cosine_similarity(msg_repr, img_repr) / contrastive_loss_temperature 
+    contrastive_loss = F.cross_entropy( 
+        similarities_messages_to_objects, torch.arange(img_repr.shape[0], device=device)
+    )
 
-    else:
-        msg_i = msg_repr[idx].unsqueeze(0)
-
-        similarities = pairwise_cosine_similarity(msg_i, img_repr) / contrastive_loss_temperature
-
-        target = torch.tensor([idx], device=device)
-            
-        contrastive_loss = F.cross_entropy(
-            similarities,
-            target
-        )
     return contrastive_loss
 
 def compute_corrects(msg_repr, img_repr, idx=None):
-    if isinstance(idx, torch.Tensor):
-        predicted_labels = pairwise_cosine_similarity(
-            msg_repr, img_repr
-        ).argmax(1).cpu()
+    predicted_labels = pairwise_cosine_similarity(
+        msg_repr, img_repr
+    ).argmax(1).cpu()
 
-        corrects = (
-            predicted_labels == torch.arange(img_repr.shape[0])
-        ).sum().item()
+    corrects = (
+        predicted_labels == torch.arange(img_repr.shape[0])
+    ).sum().item()
 
-        total = img_repr.shape[0]
-
-    else:
-        msg_i = msg_repr[idx].unsqueeze(0)
-        
-        similarities = pairwise_cosine_similarity(
-            msg_i, img_repr
-        )
-        predicted_label = similarities.argmax(dim=1).item()
-        corrects = int(predicted_label == idx)
-        total = 1
+    total = img_repr.shape[0]
 
     return corrects, total
 
         
 def compute_rewards(msg_repr, img_repr, contrastive_loss_temperature, idx=None, device='cuda'):
-    if isinstance(idx, torch.Tensor):
-        similarities_messages_to_objects = pairwise_cosine_similarity(msg_repr, img_repr) / contrastive_loss_temperature
-        rewards = -1 * F.cross_entropy(similarities_messages_to_objects, torch.arange(0, img_repr.shape[0]).to(device), reduction='none').detach()
-    else:
-        text_i = msg_repr[idx].unsqueeze(0)
-        similarities = pairwise_cosine_similarity(
-            text_i, 
-            img_repr
-        ) / contrastive_loss_temperature
-        target = torch.tensor([idx], device=device)
-        rewards = -1 * F.cross_entropy(similarities, target, reduction='none').detach()
-    
+    similarities_messages_to_objects = pairwise_cosine_similarity(msg_repr, img_repr) / contrastive_loss_temperature
+    rewards = -1 * F.cross_entropy(similarities_messages_to_objects, torch.arange(0, img_repr.shape[0]).to(device), reduction='none').detach()
     return rewards
 
 def evaluate_self_communicate(agent, test_dataset, device, message_length, number_of_candidates=100, batch_sampler=None, collate_fn=None):
@@ -328,10 +295,10 @@ def evaluate_similarity_between_text_perceptions(agent_a, agent_b, test_dataset,
     print(f"p-value: {p_value:.5f}")
 
     results = {
-        "observed_similarity": observed_sim,
-        "baseline_mean": baseline_mean,
-        "baseline_std": baseline_std,
-        "p_value": p_value
+        "observed_similarity": observed_sim.item(),
+        "baseline_mean": baseline_mean.item(),
+        "baseline_std": baseline_std.item(),
+        "p_value": p_value.item()
     }
 
     return results
