@@ -85,6 +85,8 @@ def evaluate_self_communicate(agent, test_dataset, device, message_length, numbe
     """Evaluate agent's ability to match images with their emergent language representations"""
     total_correct_matches = 0
     total_samples = 0
+    
+    agent.eval()
 
     # Create test data loader
     if batch_sampler == None:
@@ -119,6 +121,7 @@ def evaluate_self_communicate(agent, test_dataset, device, message_length, numbe
     # Calculate and display accuracy
     matching_accuracy = total_correct_matches / total_samples
     print(f'Image-text matching accuracy: {matching_accuracy:.3f}')
+    agent.train()
     return matching_accuracy
 
 
