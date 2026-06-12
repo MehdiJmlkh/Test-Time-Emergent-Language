@@ -4,7 +4,11 @@
         "self_play_accuracy_a": 0.841,
         "self_play_accuracy_b": 0.011,
         "test_time_training_accuracy": 0.891,
-        "mutual_play_accuracy": 0.889
+        "mutual_play_accuracy": 0.889,
+        "mp_similarity": 0.9482,
+        "mp_similarity_baseline_mean": 0.002382,
+        "mp_similarity_baseline_std": 0.00069,
+        "mp_similarity_p_value": 0.000999
     },
     "config": {
         "num_iterations": 0,
