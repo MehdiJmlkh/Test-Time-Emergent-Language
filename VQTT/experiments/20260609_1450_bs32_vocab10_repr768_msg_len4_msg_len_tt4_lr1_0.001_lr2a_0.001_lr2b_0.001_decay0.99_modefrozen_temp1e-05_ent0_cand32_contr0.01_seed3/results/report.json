@@ -5,7 +5,11 @@
         "self_play_accuracy_b": 0.03,
         "mutual_play_accuracy": 0.883,
         "test_time_self_play_accuracy": 0.879,
-        "test_time_training_accuracy": 0.883
+        "test_time_training_accuracy": 0.883,
+        "mp_similarity": 0.922851,
+        "mp_similarity_baseline_mean": 0.005393,
+        "mp_similarity_baseline_std": 0.000719,
+        "mp_similarity_p_value": 0.000999
     },
     "config": {
         "gumbel": false,
