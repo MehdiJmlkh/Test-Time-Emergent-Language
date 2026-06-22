@@ -112,7 +112,7 @@ class MNIST(Dataset):
         return len(self.data["images"])
     
     def __getitem__(self, idx): 
-        return self.data["images"][idx].permute(1, 2, 0), torch.tensor(1).to(device='cuda')
+        return self.data["images"][idx].permute(1, 2, 0), self.data["labels"][idx]
 
 
 class COCO(Dataset):
