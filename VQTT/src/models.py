@@ -380,6 +380,14 @@ class VQELAgent(AbstractAgent):
         x = self.text_perception_gru_head(x)
         
         return x
+    
+    def get_external_embedding(self, x):
+        if x.dim() == 2:
+            x = self.external_token_embedding(x)
+        else:
+            x = torch.matmul(x, self.external_token_embedding.weight)
+            
+        return x
 
     def reset_perception(self):
         """Reset perception modules to their initial state."""
