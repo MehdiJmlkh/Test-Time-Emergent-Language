@@ -157,18 +157,15 @@ def test_time_dataset_adaptation(
                 ).entropy().mean()
                 loss = loss + entropy_factor * entropy_loss
             
-            # Backward pass
             loss.backward()
             optimizer.step()
             
-            # Update metrics
             total_contrastive_loss += contrastive_loss.item()
             total_commit_loss += text_generation_result['commit_loss'].item()
             
             corrects, total = compute_corrects(text_repr, img_repr, idx=labels)
             total_corrects += corrects
             
-            # Update progress bar
             progress_bar.set_postfix(
                 loss=f"{loss.item():.4f}",
                 contrastive_loss=f"{total_contrastive_loss / (iter_num + 1):.4f}",
@@ -190,7 +187,6 @@ def test_time_full_sender_dataset_adaptation(
 ):      
     
     agent_clone = agent
-    # agent_clone.object_encoder.eval()
 
     optimizer = torch.optim.Adam([
         {'params': agent_clone.parameters()},
@@ -228,18 +224,15 @@ def test_time_full_sender_dataset_adaptation(
                 ).entropy().mean()
                 loss = loss + entropy_factor * entropy_loss
             
-            # Backward pass
             loss.backward()
             optimizer.step()
             
-            # Update metrics
             total_contrastive_loss += contrastive_loss.item()
             total_commit_loss += text_generation_result['commit_loss'].item()
             
             corrects, total = compute_corrects(text_repr, img_repr, idx=labels)
             total_corrects += corrects
             
-            # Update progress bar
             progress_bar.set_postfix(
                 loss=f"{loss.item():.4f}",
                 contrastive_loss=f"{total_contrastive_loss / (iter_num + 1):.4f}",
@@ -247,7 +240,8 @@ def test_time_full_sender_dataset_adaptation(
                 acc=f"{total_corrects / ((iter_num + 1) * total):.4f}"
             )
             progress_bar.refresh()
-            
+         
+   
 def oracle_dataset_adaptation(
     agent,
     agent_b, 
@@ -305,18 +299,15 @@ def oracle_dataset_adaptation(
                 ).entropy().mean()
                 loss = loss + entropy_factor * entropy_loss
             
-            # Backward pass
             loss.backward()
             optimizer.step()
             
-            # Update metrics
             total_contrastive_loss += contrastive_loss.item()
             total_commit_loss += text_generation_result['commit_loss'].item()
             
             corrects, total = compute_corrects(text_repr, img_repr, idx=labels)
             total_corrects += corrects
             
-            # Update progress bar
             progress_bar.set_postfix(
                 loss=f"{loss.item():.4f}",
                 contrastive_loss=f"{total_contrastive_loss / (iter_num + 1):.4f}",
@@ -324,92 +315,7 @@ def oracle_dataset_adaptation(
                 acc=f"{total_corrects / ((iter_num + 1) * total):.4f}"
             )
             progress_bar.refresh()
-            
-# def oracle_dataset_adaptation(
-#     agent_a, 
-#     agent_b,
-#     test_loader, 
-#     lr, 
-#     num_epochs, 
-#     message_length, 
-#     sampling_temperature=1e-5, 
-#     entropy_factor=0, 
-#     contrastive_loss_temperature=0.01, 
-#     device="cuda", 
-# ):      
-#     print("hiiiiiiiiiiiiiiiiii")
-#     agent_clone_a = agent_a
-#     agent_clone_a.object_encoder.eval()
-    
-#     agent_clone_b = agent_b
-#     agent_clone_b.object_encoder.eval()
 
-#     optimizer = torch.optim.Adam([
-#         {'params': agent_clone_a.text_generation_gru.parameters()},
-#         {'params': agent_clone_a.text_generation_gru_head.parameters()},
-#         # {'params': agent_clone_b.parameters()},
-#         # {'params': agent_clone_a.parameters()}
-#     ], lr=lr)
-    
-#     for epoch_num in range(num_epochs):
-#         progress_bar = tqdm(test_loader, desc=f'Training Progress Epoch {epoch_num}/{num_epochs}')
-        
-#         total_contrastive_loss = 0.0
-#         total_commit_loss = 0.0
-#         total_corrects = 0
-        
-#         for iter_num, (imgs, labels) in enumerate(progress_bar):
-#             optimizer.zero_grad()
-#             imgs = imgs.to(device)
-#             batch_size = imgs.shape[0]
-
-            
-#             # Forward pass through agent
-#             img_repr = agent_clone_a.forward_image_encoder(imgs)
-#             text_generation_result = agent_clone_a.forward_text_generation(
-#                 imgs, 
-#                 message_length=message_length, 
-#                 freeze_codebook=True, 
-#                 mode='discrete', 
-#                 sampling_temperature=sampling_temperature
-#             )
-#             words = text_generation_result['indices']
-#             sender_words_logits = text_generation_result['words_logits']
-            
-#             # ===== Agent B (Receiver): Interpret messages =====
-#             listener_messages_repr = agent_clone_b.forward_external_text_perception(words).squeeze(1)
-#             listener_objects_repr = agent_clone_b.forward_image_encoder(imgs)
-#             similarities = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
-
-#             # -----            
-#             target_indices = torch.arange(batch_size, device=device)
-#             with torch.no_grad():
-#                 rewards = -F.cross_entropy(similarities, target_indices, reduction='none')
-#             selected_log_probs = torch.log(torch.gather(sender_words_logits, -1, words.unsqueeze(-1))).squeeze(-1)
-
-#             normalized_returns = (rewards)
-            
-#             contrastive_loss = -torch.mean(normalized_returns.unsqueeze(1) * selected_log_probs)            
-#             loss = contrastive_loss + text_generation_result['commit_loss']
-            
-#             loss.backward()
-#             optimizer.step()
-            
-#             # Update metrics
-#             total_contrastive_loss += contrastive_loss.item()
-#             total_commit_loss += text_generation_result['commit_loss'].item()
-            
-#             corrects, total = compute_corrects(listener_messages_repr, listener_objects_repr, idx=labels)
-#             total_corrects += corrects
-            
-#             # Update progress bar
-#             progress_bar.set_postfix(
-#                 loss=f"{loss.item():.4f}",
-#                 contrastive_loss=f"{total_contrastive_loss / (iter_num + 1):.4f}",
-#                 commit_loss=f"{total_commit_loss / (iter_num + 1):.4f}",
-#                 acc=f"{total_corrects / ((iter_num + 1) * total):.4f}"
-#             )
-#             progress_bar.refresh()
             
 def test_time_batch_adaptation(
     agent, 
@@ -447,12 +353,6 @@ def test_time_batch_adaptation(
         )
         text_repr = agent_clone.forward_text_perception(text_generation_result['discretized'])
         
-        # # Compute contrastive loss
-        # similarities_messages_to_objects = pairwise_cosine_similarity(text_repr, img_repr) / contrastive_loss_temperature
-        # contrastive_loss = F.cross_entropy(
-        #     similarities_messages_to_objects, 
-        #     torch.arange(imgs.shape[0], device=device)
-        # )
         contrastive_loss = compute_contrastive_loss(text_repr, img_repr, contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
         
         # Total loss with commitment and entropy regularization
@@ -463,7 +363,6 @@ def test_time_batch_adaptation(
             ).entropy().mean()
             loss = loss + entropy_factor * entropy_loss
         
-        # Backward pass
         loss.backward()
         optimizer.step()        
     
@@ -522,7 +421,6 @@ def test_time_full_sender_batch_adaptation(
             ).entropy().mean()
             loss = loss + entropy_factor * entropy_loss
         
-        # Backward pass
         loss.backward()
         optimizer.step()        
     
