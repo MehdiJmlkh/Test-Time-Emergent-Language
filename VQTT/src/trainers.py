@@ -320,8 +320,6 @@ def train_self_play(
             'epoch': epoch,
             'val_acc': val_acc
         }
-        # ckpt_path = os.path.join(ckpt_dir, f'epoch_{epoch:03d}.pth')
-        # torch.save(checkpoint, ckpt_path)
         if is_best:
             best_ckpt_path = os.path.join(ckpt_dir, 'best_model.pth')
             torch.save(checkpoint, best_ckpt_path)
@@ -497,13 +495,10 @@ def train_mutual_play(
             'epoch': epoch,
             'val_acc': val_acc
         }
-        # ckpt_path = os.path.join(ckpt_dir, f'epoch_{epoch:03d}.pth')
-        # torch.save(checkpoint, ckpt_path)
         if is_best:
             best_ckpt_path = os.path.join(ckpt_dir, 'best_model.pth')
             torch.save(checkpoint, best_ckpt_path)
     
-    # Initialize tracking variables
     best_val_acc = 0.0
     best_model_state = None
     reward_deque = deque(maxlen=100)
@@ -512,7 +507,6 @@ def train_mutual_play(
     if writer == None:
         writer = SummaryWriter('runs/vqel_entropy0')
     
-    # Determine if agent A should be frozen
     freeze_agent_a = (agent_a_training_mode == 'frozen')
     preserve_language = (agent_a_training_mode == 'reinforce_with_preservation')
 
@@ -522,7 +516,6 @@ def train_mutual_play(
             desc=f'Training Progress Epoch {epoch_num}/{num_pretrain_epochs + num_dialogue_epochs}'
         )
         
-        # Initialize epoch metrics
         metrics = {
             'm1_loss': 0.0,
             'm2_loss': 0.0,

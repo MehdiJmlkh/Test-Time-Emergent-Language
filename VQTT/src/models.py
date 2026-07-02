@@ -8,10 +8,6 @@ from abc import ABC
 from vector_quantize_pytorch import VectorQuantize
 
 
-# Standard output format for text generation across all agent types
-# Required fields: indices, words_logits
-# Optional fields: commit_loss, continuous, discretized (only present for VQ-based agents)
-
 class AbstractAgent(ABC, nn.Module):
     """
     Abstract Agent class for VQEL.
@@ -178,7 +174,6 @@ class VQELAgent(AbstractAgent):
         self.commitment_weight = commitment_weight
         self.orthogonal_reg_weight = orthogonal_reg_weight
         
-        # Object encoder
         self.object_encoder = object_encoder
         
         # Text generation components
@@ -189,7 +184,6 @@ class VQELAgent(AbstractAgent):
             self.text_generation_gru_head
         ])
         
-        # Vector quantization
         self.vq = VectorQuantize(
             dim=representation_dim,
             codebook_size=vocab_size,
@@ -209,7 +203,6 @@ class VQELAgent(AbstractAgent):
             self.text_perception_gru_head
         ])
         
-        # External token embedding
         self.external_token_embedding = nn.Embedding(vocab_size, representation_dim)
         
     def reset_codebook(self):
@@ -251,7 +244,6 @@ class VQELAgent(AbstractAgent):
         Returns:
             TextGenerationOutput: Dictionary containing generation results.
         """
-        # Encode input
         x = self.object_encoder(x)
         batch_size = x.shape[0]
         device = next(self.parameters()).device
@@ -284,10 +276,8 @@ class VQELAgent(AbstractAgent):
             
             # Compute word logits using distance to codebook
             codebook = self.vq.codebook
-            # similarities = -torch.cdist(x, codebook, p=2.0)[:, 0, :]
             
             if self.use_cosine_sim:
-                # First reshape if needed
                 x_flat = x.view(x.size(0), -1)               # (B, D)
                 codebook_flat = codebook.view(codebook.size(0), -1)  # (K, D)
 
@@ -304,14 +294,12 @@ class VQELAgent(AbstractAgent):
                 word_logits_step = F.softmax(distances / sampling_temperature, dim=-1)
 
             
-            # Store results
             continuous_outputs.append(x)
             discretized_outputs.append(x_discretized)
             indices_outputs.append(x_indices)
             commit_losses.append(x_commit_loss)
             word_logits.append(word_logits_step)
             
-            # Update input for next step
             if mode == 'continuous':
                 pass  # Keep continuous representation
             elif mode == 'discrete':
@@ -319,7 +307,6 @@ class VQELAgent(AbstractAgent):
             else:
                 raise ValueError(f"Invalid mode: {mode}. Must be 'continuous' or 'discrete'.")
         
-        # Combine results
         result = {
             'continuous': torch.cat(continuous_outputs, dim=1),
             'discretized': torch.cat(discretized_outputs, dim=1),
