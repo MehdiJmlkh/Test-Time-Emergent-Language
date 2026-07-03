@@ -16,46 +16,54 @@ from itertools import product
 
 class ShapeWorld(Dataset):
     def __init__(
-        self, 
-        n=128, 
-        mode='train', 
-        dtype='agreement', 
-        name='existential', 
-        collision_tolerance=0.0, 
-        config='/home/shared/ShapeWorld/configs/agreement/existential/oneshape_test.json',
-        **kwargs
+        self,
+        n=128,
+        mode="train",
+        dtype="agreement",
+        name="existential",
+        collision_tolerance=0.0,
+        config="/home/shared/ShapeWorld/configs/agreement/existential/oneshape_test.json",
+        **kwargs,
     ):
-        dataset = shapeworld.Dataset.create(dtype=dtype, name=name, collision_tolerance=collision_tolerance, config=config, **kwargs)
+        dataset = shapeworld.Dataset.create(
+            dtype=dtype,
+            name=name,
+            collision_tolerance=collision_tolerance,
+            config=config,
+            **kwargs,
+        )
         generated = dataset.generate(n=n, mode=mode, include_model=True)
-        self.imgs = generated['world']
-    
+        self.imgs = generated["world"]
+
     def __len__(self):
         return self.imgs.shape[0]
 
     def __getitem__(self, idx):
-        return torch.tensor(self.imgs[idx]), torch.tensor(1).to(device='cuda')
+        return torch.tensor(self.imgs[idx]), torch.tensor(1).to(device="cuda")
 
 
 class MNIST(Dataset):
-    def __init__(self, mode='train', path="/home/shared/data/MNIST1"):
-        self.data = torch.load(path + f"/{mode}.pt")        
-        
+    def __init__(self, mode="train", path="/home/shared/data/MNIST1"):
+        self.data = torch.load(path + f"/{mode}.pt")
+
     def __len__(self):
         return len(self.data["images"])
-    
-    def __getitem__(self, idx): 
+
+    def __getitem__(self, idx):
         return self.data["images"][idx].permute(1, 2, 0), self.data["labels"][idx]
 
 
 class COCO(Dataset):
     def __init__(self, mode="train"):
-        data =  torch.load(f"/home/shared/data/coco/coco_dino_{mode}.pt", map_location="cpu")
+        data = torch.load(
+            f"/home/shared/data/coco/coco_dino_{mode}.pt", map_location="cpu"
+        )
         self.embeddings = data["embeddings"]
         self.path = data["paths"]
-    
+
     def __len__(self):
         return len(self.embeddings)
-    
+
     def __getitem__(self, index):
         return self.embeddings[index], self.path[index]
 
@@ -69,17 +77,15 @@ def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
         with open(os.path.join(path, "data.pkl"), "wb") as f:
             pickle.dump(data, f)
 
-
-    train_dataset = ShapeWorld(n=math.floor(n * train_split), mode='train')
-    val_dataset = ShapeWorld(n=math.floor(n * val_split), mode='validation')
-    test_dataset = ShapeWorld(n=math.floor(n * test_split), mode='test')
-
+    train_dataset = ShapeWorld(n=math.floor(n * train_split), mode="train")
+    val_dataset = ShapeWorld(n=math.floor(n * val_split), mode="validation")
+    test_dataset = ShapeWorld(n=math.floor(n * test_split), mode="test")
 
     save_dataset(train_dataset, "/home/shared/data/shape/train")
     save_dataset(val_dataset, "/home/shared/data/shape/val")
     save_dataset(test_dataset, "/home/shared/data/shape/test")
-    
-    
+
+
 class PreSavedBatchDataset(Dataset):
     def __init__(self, batches):
         self.batches = batches

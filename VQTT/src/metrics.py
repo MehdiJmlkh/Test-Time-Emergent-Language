@@ -14,21 +14,11 @@ import math
 from collections import Counter
 
 
-
-
 def get_messages(
-    sender,
-    test_dataset,
-    device,
-    message_length,
-    batch_size=100,
-    num_workers=0
+    sender, test_dataset, device, message_length, batch_size=100, num_workers=0
 ):
     test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
 
     all_messages = []
@@ -45,7 +35,7 @@ def get_messages(
                 message_length=message_length,
                 freeze_codebook=True,
                 mode="discrete",
-                sampling_temperature=1e-5
+                sampling_temperature=1e-5,
             )
 
             # words: [batch_size, message_length]
@@ -65,6 +55,7 @@ def count_unique_messages(messages):
 
 def hamming_distance(a, b):
     return sum(x != y for x, y in zip(a, b))
+
 
 def topographic_similarity(meanings, messages):
     meanings = list(meanings)
@@ -181,7 +172,6 @@ def concept_best_matching(messages, meanings):
     return float(torch.stack(cbm_scores).mean())
 
 
-
 def encode_as_ids(tensor):
     """
     tensor: (N, D) discrete tensor
@@ -250,11 +240,11 @@ def compute_conditional_entropies(messages, meanings):
     P_cm, P_c, P_m = estimate_distributions(messages, meanings)
 
     # H(C | M)
-    P_c_m = { (c, m): p for (c, m), p in P_cm.items() }
+    P_c_m = {(c, m): p for (c, m), p in P_cm.items()}
     H_C_given_M = conditional_entropy(P_c_m, P_m)
 
     # H(M | C)
-    P_m_c = { (m, c): p for (c, m), p in P_cm.items() }
+    P_m_c = {(m, c): p for (c, m), p in P_cm.items()}
     H_M_given_C = conditional_entropy(P_m_c, P_c)
 
     return H_C_given_M, H_M_given_C

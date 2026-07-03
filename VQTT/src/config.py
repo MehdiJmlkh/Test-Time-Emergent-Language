@@ -1,5 +1,5 @@
 baseline = False
-dataset = 'imagenet'
+dataset = "imagenet"
 representation_dim = 2048
 batch_size = 32
 number_of_candidates = 32
@@ -11,11 +11,11 @@ num_dialogue_epochs = 100
 learning_rate_phase1 = 1e-5
 learning_rate_phase2_a = 1e-5
 learning_rate_phase2_b = 1e-5
-agent_a_training_mode = 'frozen'
+agent_a_training_mode = "frozen"
 
-dataset_tt = 'imagenet_same_class'
+dataset_tt = "imagenet_same_class"
 message_length_tt = 4
-test_time_mode = 'dataset_adaptation'
+test_time_mode = "dataset_adaptation"
 num_iterations = 0
 learning_rate_tt = 1e-4
 sampling_temperature_tt = 1e-2
