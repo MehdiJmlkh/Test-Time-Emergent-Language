@@ -152,26 +152,18 @@ def train_agents_baseline_reinforce(
             else:
                 listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
-            #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
-            # similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
-            # m2_loss = F.cross_entropy(similarities_messages_to_objects, torch.arange(0, batch_size).to(device))
+
             m2_loss = compute_contrastive_loss(listener_messages_repr, listener_objects_repr, contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
             m2_loss.backward()
-            ###
+
             rewards = compute_rewards(listener_messages_repr, listener_objects_repr, contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
-            #rewards = (similarities_messages_to_objects.argmax(-1) == torch.arange(0, batch_size).to(device)).float()
-            # reward_deque.append(rewards.detach().cpu().numpy())
-            avg_reward: float = float(np.mean(reward_deque))
-            #####
+
             log_probs = torch.log(torch.gather(probs, -1, words.unsqueeze(-1)))
             returns = ((rewards - rewards.mean()) / (rewards.std() + 1e-5)).detach()
-            # returns = (rewards - avg_reward).detach()
-            # returns = (rewards - avg_reward) / (rewards.std() + 1e-5)
-            # returns = (rewards) / (rewards.std() + 1e-5)
+
             returns = (rewards)
             returns = returns.detach()
-            #returns = (rewards - avg_reward)
-            # returns = rewards.detach()
+
             m1_loss = -torch.mean(returns.unsqueeze(1) * log_probs.squeeze(-1)) #+ sender_result['commit_loss']
             entropy_loss = -Categorical(F.softmax(sender_words_logits, dim=2)).entropy().mean()
             m1_loss = m1_loss + entropy_regularization_factor*entropy_loss
@@ -213,15 +205,13 @@ def train_agents_baseline_reinforce(
             else:
                 listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
-            #similarities_messages_to_objects = (listener_messages_repr @ listener_objects_repr.T)
-            # similarities_messages_to_objects = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr)
+
             corrects, total = compute_corrects(listener_messages_repr, listener_objects_repr, idx=labels)
             total_correct += corrects
             total_ins += total
         val_acc: float = total_correct / total_ins
         logger.info(f'val accuracy: {round(val_acc, 3)}')
     
-        # Save checkpoint every epoch
         save_checkpoint(
             epoch=epoch_num,
             agent_a=agent_a,
@@ -241,7 +231,7 @@ def train_agents_baseline_reinforce(
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'epoch': epoch_num
             }
-            # Save best model checkpoint
+
             save_checkpoint(
                 epoch=epoch_num,
                 agent_a=agent_a,
@@ -325,10 +315,8 @@ def train_self_play(
             torch.save(checkpoint, best_ckpt_path)
     
     for epoch_num in range(num_pretrain_epochs):
-        # Training loop
         progress_bar = tqdm(train_loader, desc=f'Training Progress Epoch {epoch_num}/{num_pretrain_epochs}')
         
-        # Initialize metrics
         total_contrastive_loss = 0.0
         total_commit_loss = 0.0
         total_corrects = 0
@@ -337,7 +325,6 @@ def train_self_play(
             optimizer.zero_grad()
             imgs = imgs.to(device)
             
-            # Forward pass through agent
             img_repr = agent.forward_image_encoder(imgs)
             text_generation_result = agent.forward_text_generation(
                 imgs, 
@@ -359,19 +346,16 @@ def train_self_play(
                 ).entropy().mean()
                 loss = loss + entropy_factor * entropy_loss
             
-            # Backward pass
             loss.backward()
             optimizer.step()
             lr_scheduler.step()
             
-            # Update metrics
             total_contrastive_loss += contrastive_loss.item()
             total_commit_loss += text_generation_result['commit_loss'].item()
             
-            # Compute accuracy
             corrects, total = compute_corrects(text_repr, img_repr, labels)
             total_corrects += corrects
-            # Update progress bar
+
             progress_bar.set_postfix(
                 loss=f"{loss.item():.4f}",
                 contrastive_loss=f"{total_contrastive_loss / (iter_num + 1):.4f}",
@@ -380,7 +364,6 @@ def train_self_play(
             )
             progress_bar.refresh()
         
-        # Validation loop
         total_correct = 0
         total_instances = 0
         
@@ -388,7 +371,6 @@ def train_self_play(
             for imgs, labels in tqdm(val_loader, desc="Validation"):
                 imgs = imgs.to(device)
                 
-                # Forward pass
                 img_repr = agent.forward_image_encoder(imgs)
                 text_generation_result = agent.forward_text_generation(
                     imgs, 
@@ -399,7 +381,6 @@ def train_self_play(
                 )
                 text_repr = agent.forward_text_perception(text_generation_result['discretized'])
                 
-                # Compute accuracy
                 corrects, total = compute_corrects(text_repr, img_repr, labels)
                 total_correct += corrects
                 total_instances += total
@@ -414,7 +395,6 @@ def train_self_play(
             best_model_state = copy.deepcopy(agent.state_dict())
             logger.info(f'New best validation accuracy: {best_val_acc:.3f}')
         
-        # Save checkpoint every epoch
         save_checkpoint(
             epoch=epoch_num,
             agent=agent,
@@ -424,7 +404,6 @@ def train_self_play(
             val_acc=val_acc
         )
     
-    # Load best model state
     if best_model_state is not None:
         agent.load_state_dict(best_model_state)
         logger.info(f'Loaded best model with validation accuracy: {best_val_acc:.3f}')
@@ -482,7 +461,6 @@ def train_mutual_play(
     if logger is None:
         logger = logging.getLogger(__name__)
     
-    # Create checkpoint directory
     os.makedirs(ckpt_dir, exist_ok=True)
     
     def save_checkpoint(epoch, agent_a, agent_b, optimizer, lr_scheduler, is_best=False, val_acc=None):
@@ -530,7 +508,6 @@ def train_mutual_play(
             imgs = imgs.to(device)
             batch_size = imgs.shape[0]
             
-            # ===== Agent A (Sender): Generate messages =====
             sender_result = agent_a.forward_text_generation(
                 imgs, 
                 message_length=random.choice(message_length), 
@@ -541,18 +518,15 @@ def train_mutual_play(
             words = sender_result['indices']
             sender_words_logits = sender_result['words_logits']
             
-            # ===== Agent B (Receiver): Interpret messages =====
             listener_messages_repr = agent_b.forward_external_text_perception(words).squeeze(1)
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
             
-            # Compute receiver loss (cross-entropy on similarity matrix)
             similarities = pairwise_cosine_similarity(listener_messages_repr, listener_objects_repr) / contrastive_loss_temperature
             target_indices = torch.arange(batch_size, device=device)
             m2_loss = compute_contrastive_loss(listener_messages_repr, listener_objects_repr,
                 contrastive_loss_temperature=contrastive_loss_temperature, idx=labels)
             m2_loss.backward()
             
-            # ===== Agent A (Sender): Compute loss based on training mode =====
             m1_loss = torch.tensor(0.0, device=device)
             
             if not freeze_agent_a:
@@ -563,13 +537,8 @@ def train_mutual_play(
                     baseline = float(np.mean(reward_deque))
                 
                 # Compute policy gradient loss
-                # log_probs = F.log_softmax(sender_words_logits, dim=-1)
-                # selected_log_probs = torch.gather(log_probs, -1, words.unsqueeze(-1)).squeeze(-1)
                 selected_log_probs = torch.log(torch.gather(sender_words_logits, -1, words.unsqueeze(-1))).squeeze(-1)
 
-                # Normalize returns with baseline
-                # normalized_returns = (rewards - baseline) / (rewards.std() + 1e-5)
-                # normalized_returns = (rewards) / (rewards.std() + 1e-5)
                 normalized_returns = (rewards)
                 
                 # REINFORCE loss
@@ -580,7 +549,6 @@ def train_mutual_play(
                     entropy = Categorical(F.softmax(sender_words_logits, dim=2)).entropy().mean()
                     m1_loss = m1_loss - entropy_regularization_factor * entropy
                 
-                # Add commitment loss if present (only for VQ-based agents)
                 if 'commit_loss' in sender_result:
                     m1_loss = m1_loss + sender_result['commit_loss']
                 
@@ -599,7 +567,6 @@ def train_mutual_play(
                     total_sender_loss = m1_normalized + self_play_normalized
                     total_sender_loss.backward()
                     
-                    # Track self-play accuracy
                     metrics['agent_a_self_play_correct'] += (agent_a_similarities.argmax(-1) == target_indices).sum().item()
                 else:
                     m1_loss.backward()
@@ -607,7 +574,6 @@ def train_mutual_play(
             optimizer.step()
             lr_scheduler.step()
             
-            # Update metrics
             metrics['m1_loss'] += m1_loss.item()
             metrics['m2_loss'] += m2_loss.item()
             if 'commit_loss' in sender_result:
@@ -616,7 +582,6 @@ def train_mutual_play(
             metrics['correct'] += corrects
             metrics['total'] += total
             
-            # Update progress bar
             postfix = {
                 'm1_loss': metrics['m1_loss'] / (iter_num + 1),
                 'm2_loss': metrics['m2_loss'] / (iter_num + 1),
@@ -629,11 +594,9 @@ def train_mutual_play(
             progress_bar.set_postfix(postfix)
             progress_bar.refresh()
             
-            # Log to tensorboard
             global_step = epoch_num * len(train_loader) + iter_num
             writer.add_scalar("Accuracy/train", metrics['correct'] / metrics['total'], global_step)
         
-        # ===== Validation Phase =====
         agent_a.eval()
         agent_b.eval()
         
@@ -645,7 +608,6 @@ def train_mutual_play(
                 imgs = imgs.to(device)
                 batch_size = imgs.shape[0]
                 
-                # Generate messages and compute similarities
                 sender_result = agent_a.forward_text_generation(
                     imgs, 
                     message_length=message_length[-1], 
@@ -667,7 +629,6 @@ def train_mutual_play(
         val_acc = val_correct / val_total
         logger.info(f'Validation accuracy: {val_acc:.3f}')
         
-        # Save checkpoint
         save_checkpoint(
             epoch=epoch_num,
             agent_a=agent_a,
@@ -678,7 +639,6 @@ def train_mutual_play(
             val_acc=val_acc
         )
         
-        # Update best model if improved
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_model_state = {
@@ -702,4 +662,3 @@ def train_mutual_play(
     writer.close()
     
     return best_model_state, best_val_acc
-
