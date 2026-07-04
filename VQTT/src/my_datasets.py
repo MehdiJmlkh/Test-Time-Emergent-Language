@@ -12,6 +12,8 @@ from torch.utils.data import Dataset
 import torch
 import torch.nn.functional as F
 from itertools import product
+from dotenv import load_dotenv
+
 
 
 class ShapeWorld(Dataset):
@@ -55,8 +57,11 @@ class MNIST(Dataset):
 
 class COCO(Dataset):
     def __init__(self, mode="train"):
+        load_dotenv()
+        DATA_PATH = os.getenv("DATA_PATH")
+
         data = torch.load(
-            f"/home/shared/data/coco/coco_dino_{mode}.pt", map_location="cpu"
+            f"{DATA_PATH}/coco/coco_dino_{mode}.pt", map_location="cpu"
         )
         self.embeddings = data["embeddings"]
         self.path = data["paths"]

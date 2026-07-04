@@ -19,3 +19,5 @@ assets/
 msgs/
 coco/
 !coco/coco.ipynb
+
+.env
