@@ -5,7 +5,7 @@ BLUE='\033[0;34m'
 RESET='\033[0m'
 
 
-NOTEBOOK_NAME="src/0_vq_method.ipynb"
+NOTEBOOK_NAME="src/main.ipynb"
 RUN_DIR="src/runs"
 OUT_DIR="output"
 CONFIG_DIR="configs"
