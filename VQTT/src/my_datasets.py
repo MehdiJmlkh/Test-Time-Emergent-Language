@@ -85,10 +85,13 @@ def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
     train_dataset = ShapeWorld(n=math.floor(n * train_split), mode="train")
     val_dataset = ShapeWorld(n=math.floor(n * val_split), mode="validation")
     test_dataset = ShapeWorld(n=math.floor(n * test_split), mode="test")
+    
+    load_dotenv()
+    DATA_PATH = os.getenv("DATA_PATH")
 
-    save_dataset(train_dataset, "/home/shared/data/shape/train")
-    save_dataset(val_dataset, "/home/shared/data/shape/val")
-    save_dataset(test_dataset, "/home/shared/data/shape/test")
+    save_dataset(train_dataset, f"{DATA_PATH}/shape/train")
+    save_dataset(val_dataset, f"{DATA_PATH}/shape/val")
+    save_dataset(test_dataset, f"{DATA_PATH}/shape/test")
 
 
 class PreSavedBatchDataset(Dataset):
