@@ -1,9 +1,4 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from transformers import ViTImageProcessor, ViTModel
-from PIL import Image
-import requests
 
 
 class ConvBlock(nn.Module):

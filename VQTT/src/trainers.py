@@ -18,6 +18,8 @@ from PIL import Image
 import numpy as np
 import random
 from utils import compute_contrastive_loss, compute_corrects, compute_rewards
+from typing import Any, Optional
+import logging
 
 
 def st_gumbel_softmax(
@@ -32,7 +34,7 @@ def st_gumbel_softmax(
     return y_hard
 
 
-def train_agents_baseline_reinforce(
+def train_agents_baseline(
     agent_a: AbstractAgent,
     agent_b: AbstractAgent,
     train_loader: DataLoader[Any],
@@ -103,8 +105,7 @@ def train_agents_baseline_reinforce(
             "epoch": epoch,
             "val_acc": val_acc,
         }
-        # ckpt_path = os.path.join(ckpt_dir, f'epoch_{epoch:03d}.pth')
-        # torch.save(checkpoint, ckpt_path)
+
         if is_best:
             best_ckpt_path = os.path.join(ckpt_dir, "best_model.pth")
             torch.save(checkpoint, best_ckpt_path)
@@ -113,38 +114,39 @@ def train_agents_baseline_reinforce(
         progress_bar = tqdm(
             train_loader, desc=f"Training Progress Epoch {epoch_num}/{num_epochs}"
         )
+        
         total_m1_loss: float = 0.0
         total_m2_loss: float = 0.0
         total_correct: int = 0
         total_ins: int = 0
+        
         for iter_num, (imgs, labels) in enumerate(progress_bar):
-            batch_size = imgs.shape[0]
             optimizer.zero_grad()
             imgs = imgs.to(device)
+            
             sender_result = agent_a.forward_text_generation(
                 imgs,
                 message_length=random.choice(message_length),
                 sampling_temperature=sampling_temperature,
             )
+            
             sender_words_logits = sender_result["words_logits"]
-            #####
+
             if gumbel:
-                # sender_words_logits: [B, L, V]
-                batch_size, msg_len, vocab_size = sender_words_logits.shape
-                # ST Gumbel-Softmax
                 hidden_states = sender_result["hidden_states"]  # [B, L, H]
 
-                # Learned temperature τ(h)
                 tau = agent_a.compute_temperature(hidden_states)  # [B, L, 1]
                 gumbel_onehot = st_gumbel_softmax(
                     sender_words_logits, temperature=tau, dim=-1
                 )
+
                 # Discrete symbols for communication
                 words = gumbel_onehot.argmax(dim=-1)  # [B, L]
             else:
                 words = sender_result["indices"]
 
             probs = F.softmax(sender_words_logits / sampling_temperature, dim=-1)
+
             if gumbel:
                 listener_messages_repr = agent_b.forward_external_text_perception(
                     gumbel_onehot
@@ -153,6 +155,7 @@ def train_agents_baseline_reinforce(
                 listener_messages_repr = agent_b.forward_external_text_perception(
                     words
                 ).squeeze(1)
+                
             listener_objects_repr = agent_b.forward_image_encoder(imgs)
 
             m2_loss = compute_contrastive_loss(
@@ -171,23 +174,22 @@ def train_agents_baseline_reinforce(
             )
 
             log_probs = torch.log(torch.gather(probs, -1, words.unsqueeze(-1)))
-            returns = ((rewards - rewards.mean()) / (rewards.std() + 1e-5)).detach()
 
-            returns = rewards
-            returns = returns.detach()
-
+            returns = rewards.detach()
             m1_loss = -torch.mean(
                 returns.unsqueeze(1) * log_probs.squeeze(-1)
-            )  # + sender_result['commit_loss']
+            )
+
             entropy_loss = (
                 -Categorical(F.softmax(sender_words_logits, dim=2)).entropy().mean()
             )
-            m1_loss = m1_loss + entropy_regularization_factor * entropy_loss
+            m1_loss = m1_loss + entropy_regularization_factor * entropy_loss            
             if not gumbel:
                 m1_loss.backward()
+
             optimizer.step()
             lr_scheduler.step()
-            ###
+
             corrects, total = compute_corrects(
                 listener_messages_repr, listener_objects_repr, idx=labels
             )
@@ -195,20 +197,24 @@ def train_agents_baseline_reinforce(
             total_ins += total
             total_m1_loss += m1_loss.item()
             total_m2_loss += m2_loss.item()
+
             progress_bar.set_postfix(
                 m1r_loss=f"{total_m1_loss/(iter_num+1):.4f}",
                 m2r_loss=f"{total_m2_loss/(iter_num+1):.4f}",
                 accr=f"{total_correct/(total_ins):.4f}",
             )
             progress_bar.refresh()
+
             global_step = epoch_num * len(train_loader) + iter_num
             tensorboard_writer.add_scalar(
                 "Loss/train", (total_correct / (total_ins)), global_step
             )
+
         total_correct, total_ins = 0, 0
         for iter_num, (imgs, labels) in enumerate(val_loader):
             optimizer.zero_grad()
             imgs = imgs.to(device)
+
             sender_result = agent_a.forward_text_generation(
                 imgs, message_length=message_length[-1], sampling_temperature=1e-5
             )
@@ -273,10 +279,6 @@ def train_agents_baseline_reinforce(
     return best_val_acc, best_model_state
 
 
-from typing import Any, Optional
-import logging
-
-
 def train_self_play(
     agent,
     train_loader,
@@ -316,7 +318,6 @@ def train_self_play(
     best_val_acc = 0.0
     best_model_state = None
 
-    # Create checkpoint directory if it doesn't exist
     os.makedirs(ckpt_dir, exist_ok=True)
 
     def save_checkpoint(
@@ -371,8 +372,8 @@ def train_self_play(
                 idx=labels,
             )
 
-            # Total loss with commitment and entropy regularization
             loss = contrastive_loss + text_generation_result["commit_loss"]
+            
             if entropy_factor > 0:
                 entropy_loss = (
                     -Categorical(
@@ -424,7 +425,6 @@ def train_self_play(
                 total_correct += corrects
                 total_instances += total
 
-        # Update best model if validation accuracy improved
         val_acc = total_correct / total_instances
         logger.info(f"Validation accuracy: {val_acc:.3f}")
 
@@ -505,7 +505,6 @@ def train_mutual_play(
     def save_checkpoint(
         epoch, agent_a, agent_b, optimizer, lr_scheduler, is_best=False, val_acc=None
     ):
-        """Save model checkpoint."""
         checkpoint = {
             "agent_a": agent_a.state_dict(),
             "agent_b": agent_b.state_dict(),
@@ -604,7 +603,6 @@ def train_mutual_play(
                     normalized_returns.unsqueeze(1) * selected_log_probs
                 )
 
-                # Add entropy regularization if specified
                 if entropy_regularization_factor > 0:
                     entropy = (
                         Categorical(F.softmax(sender_words_logits, dim=2))
@@ -616,7 +614,6 @@ def train_mutual_play(
                 if "commit_loss" in sender_result:
                     m1_loss = m1_loss + sender_result["commit_loss"]
 
-                # Add language preservation loss if specified (only for VQ-based agents)
                 if preserve_language and "discretized" in sender_result:
                     # Self-play contrastive loss for agent A
                     img_repr_a = agent_a.forward_image_encoder(imgs)
@@ -653,6 +650,7 @@ def train_mutual_play(
             metrics["m2_loss"] += m2_loss.item()
             if "commit_loss" in sender_result:
                 metrics["commit_loss"] += sender_result["commit_loss"].item()
+            
             corrects, total = compute_corrects(
                 listener_messages_repr, listener_objects_repr, idx=labels
             )
@@ -665,6 +663,7 @@ def train_mutual_play(
                 "acc": metrics["correct"] / metrics["total"],
                 "commit_loss": metrics["commit_loss"] / (iter_num + 1),
             }
+
             if preserve_language:
                 postfix["agent_a_self_play_acc"] = (
                     metrics["agent_a_self_play_correct"] / metrics["total"]
@@ -702,6 +701,7 @@ def train_mutual_play(
                     words
                 ).squeeze(1)
                 listener_objects_repr = agent_b.forward_image_encoder(imgs)
+                
                 corrects, total = compute_corrects(
                     listener_messages_repr, listener_objects_repr, idx=labels
                 )

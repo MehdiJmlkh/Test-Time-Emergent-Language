@@ -71,9 +71,9 @@ class BaselineAgent(AbstractAgent):
         )
         self.input_dim = input_dim
         self.representation_dim = representation_dim
-        #### ConvNet
+
         self.object_encoder = object_encoder
-        ### Text Generation
+
         self.text_generation_gru = nn.GRU(
             representation_dim, representation_dim, batch_first=True
         )
@@ -84,26 +84,17 @@ class BaselineAgent(AbstractAgent):
         self.text_generation_word_embedding = nn.Embedding(
             vocab_size, representation_dim
         )
-        ### Text Perception
+
         self.text_perception_gru = nn.GRU(
             representation_dim, representation_dim, batch_first=True
         )
         self.text_perception_gru_head = nn.Linear(
             representation_dim, representation_dim
         )
-        ### Others Text Perception
+
         self.external_token_embedding = nn.Embedding(vocab_size, representation_dim)
 
     def forward_image_encoder(self, x):
-        """
-        Forward pass through the ConvNet and Image Encoder.
-
-        Args:
-        - x (torch.Tensor): Input image tensor of shape (batch_size, channels, height, width).
-
-        Returns:
-        - torch.Tensor: Output representation tensor of shape (batch_size, representation_dim).
-        """
         x = self.object_encoder(x)
         return x
 
@@ -135,34 +126,40 @@ class BaselineAgent(AbstractAgent):
 
         x = self.object_encoder(x)
         x = einops.repeat(x, "b d -> b l d", l=1)
+        batch_size = x.shape[0]
+
         generated_andices = []
         logit_scores = []
         hidden_states = []
-        batch_size = x.shape[0]
+
         h = torch.zeros(1, batch_size, self.representation_dim).to(
             next(self.parameters()).device
         )
         h[0, :, :] = x[:, 0, :]
+
         x = torch.zeros_like(x)
+
         for i in range(message_length):
             x, h = self.text_generation_gru(x, h)
             last_hidden_state = x[:, -1:, :]
+
             logit_score = self.vocab_logits(
                 self.text_generation_gru_head(last_hidden_state)
             )
             logit_scores.append(logit_score)
+
             logit_score = F.softmax(logit_score / sampling_temperature, dim=2)
             next_word = Categorical(logit_score).sample()
             next_word_embeddings = self.text_generation_word_embedding(next_word)
+
             x = next_word_embeddings
+
             generated_andices.append(next_word)
             hidden_states.append(h[0])
-        # Concatenate tensors along dimension 1
+
         generated_andices = torch.cat(generated_andices, dim=1)
         logit_scores = torch.cat(logit_scores, dim=1)  # 1 is because l in [b, l, score]
 
-        # Return standardized output format
-        # BaselineAgent only returns required fields (no VQ-specific fields)
         return {
             "indices": generated_andices,
             "words_logits": logit_scores,
@@ -184,12 +181,14 @@ class BaselineAgent(AbstractAgent):
             x = self.external_token_embedding(x)
         else:
             x = torch.matmul(x, self.external_token_embedding.weight)
+
         h = torch.zeros(1, batch_size, self.representation_dim).to(
             next(self.parameters()).device
         )
         x, h = self.text_perception_gru(x, h)
         x = x[:, -1, :]
         x = self.text_perception_gru_head(x)
+
         return x
 
 
@@ -219,7 +218,6 @@ class VQELAgent(AbstractAgent):
 
         self.object_encoder = object_encoder
 
-        # Text generation components
         self.text_generation_gru = nn.GRU(
             representation_dim, representation_dim, batch_first=True
         )
@@ -241,7 +239,6 @@ class VQELAgent(AbstractAgent):
             orthogonal_reg_weight=orthogonal_reg_weight,
         )
 
-        # Text perception components
         self.text_perception_gru = nn.GRU(
             representation_dim, representation_dim, batch_first=True
         )
@@ -310,16 +307,13 @@ class VQELAgent(AbstractAgent):
         # Initialize input for generation
         x = torch.zeros(batch_size, 1, self.representation_dim, device=device)
 
-        # Storage for results
         continuous_outputs = []
         discretized_outputs = []
         indices_outputs = []
         commit_losses = []
         word_logits = []
 
-        # Generation loop
         for _ in range(message_length):
-            # GRU forward pass
             x, h = self.text_generation_gru(x, h)
             x = x[:, -1:, :]  # Take last output
             x = self.text_generation_gru_head(x)
@@ -395,7 +389,6 @@ class VQELAgent(AbstractAgent):
         # Initialize hidden state
         h = torch.zeros(1, batch_size, self.representation_dim, device=device)
 
-        # Process sequence
         x, h = self.text_perception_gru(x, h)
         x = x[:, -1, :]  # Take final output
         x = self.text_perception_gru_head(x)
@@ -420,10 +413,10 @@ class VQELAgent(AbstractAgent):
             x = self.external_token_embedding(x)
         else:
             x = torch.matmul(x, self.external_token_embedding.weight)
+
         # Initialize hidden state
         h = torch.zeros(1, batch_size, self.representation_dim, device=device)
 
-        # Process sequence
         x, h = self.text_perception_gru(x, h)
         x = x[:, -1, :]  # Take final output
         x = self.text_perception_gru_head(x)
