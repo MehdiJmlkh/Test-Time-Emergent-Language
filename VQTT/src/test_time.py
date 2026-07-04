@@ -130,23 +130,21 @@ def test_time_dataset_adaptation(
     entropy_factor=0,
     contrastive_loss_temperature=0.1,
     device="cuda",
-    full_adaptation=False
+    full_adaptation=False,
 ):
-    agent_clone = agent
-
     if full_adaptation:
         optimizer = torch.optim.Adam(
             [
-                {"params": agent_clone.parameters()},
+                {"params": agent.parameters()},
             ],
             lr=lr,
         )
     else:
-        agent_clone.object_encoder.eval()
+        agent.object_encoder.eval()
         optimizer = torch.optim.Adam(
             [
-                {"params": agent_clone.text_generation_gru.parameters()},
-                {"params": agent_clone.text_generation_gru_head.parameters()},
+                {"params": agent.text_generation_gru.parameters()},
+                {"params": agent.text_generation_gru_head.parameters()},
             ],
             lr=lr,
         )
@@ -164,15 +162,15 @@ def test_time_dataset_adaptation(
             optimizer.zero_grad()
             imgs = imgs.to(device)
 
-            img_repr = agent_clone.forward_image_encoder(imgs)
-            text_generation_result = agent_clone.forward_text_generation(
+            img_repr = agent.forward_image_encoder(imgs)
+            text_generation_result = agent.forward_text_generation(
                 imgs,
                 message_length=message_length,
                 freeze_codebook=True,
                 mode="discrete",
                 sampling_temperature=sampling_temperature,
             )
-            text_repr = agent_clone.forward_text_perception(
+            text_repr = agent.forward_text_perception(
                 text_generation_result["discretized"]
             )
 
@@ -213,7 +211,7 @@ def test_time_dataset_adaptation(
 
 
 def oracle_dataset_adaptation(
-    agent,
+    agent_a,
     agent_b,
     test_loader,
     lr,
@@ -224,16 +222,13 @@ def oracle_dataset_adaptation(
     contrastive_loss_temperature=0.1,
     device="cuda",
 ):
-
-    agent_clone = agent
-    agent_clone.object_encoder.eval()
-
-    agent_clone_b = copy.deepcopy(agent_b)
+    agent_a.object_encoder.eval()
+    agent_b = copy.deepcopy(agent_b)
 
     optimizer = torch.optim.Adam(
         [
-            {"params": agent_clone.text_generation_gru.parameters()},
-            {"params": agent_clone.text_generation_gru_head.parameters()},
+            {"params": agent_a.text_generation_gru.parameters()},
+            {"params": agent_a.text_generation_gru_head.parameters()},
         ],
         lr=lr,
     )
@@ -251,16 +246,15 @@ def oracle_dataset_adaptation(
             optimizer.zero_grad()
             imgs = imgs.to(device)
 
-            # Forward pass through agent
-            img_repr = agent_clone.forward_image_encoder(imgs)
-            text_generation_result = agent_clone.forward_text_generation(
+            img_repr = agent_a.forward_image_encoder(imgs)
+            text_generation_result = agent_a.forward_text_generation(
                 imgs,
                 message_length=message_length,
                 freeze_codebook=True,
                 mode="discrete",
                 sampling_temperature=sampling_temperature,
             )
-            text_repr = agent_clone_b.forward_text_perception(
+            text_repr = agent_b.forward_text_perception(
                 text_generation_result["discretized"]
             )
 
@@ -271,7 +265,6 @@ def oracle_dataset_adaptation(
                 idx=labels,
             )
 
-            # Total loss with commitment and entropy regularization
             loss = contrastive_loss + text_generation_result["commit_loss"]
             if entropy_factor > 0:
                 entropy_loss = (
@@ -349,78 +342,6 @@ def test_time_batch_adaptation(
             idx=labels,
         )
 
-        # Total loss with commitment and entropy regularization
-        loss = contrastive_loss + text_generation_result["commit_loss"]
-        if entropy_factor > 0:
-            entropy_loss = (
-                -Categorical(F.softmax(text_generation_result["words_logits"], dim=2))
-                .entropy()
-                .mean()
-            )
-            loss = loss + entropy_factor * entropy_loss
-
-        loss.backward()
-        optimizer.step()
-
-    agent_clone.eval()
-    sender_result = agent_clone.forward_text_generation(
-        batch.to(device),
-        message_length=message_length,
-        freeze_codebook=True,
-        mode="discrete",
-        sampling_temperature=sampling_temperature,
-    )
-
-    return sender_result["indices"], sender_result["discretized"].detach()
-
-
-def test_time_full_sender_batch_adaptation(
-    agent,
-    batch,
-    lr,
-    num_epochs,
-    message_length,
-    labels=None,
-    sampling_temperature=1e-5,
-    entropy_factor=0,
-    contrastive_loss_temperature=0.1,
-    device="cuda",
-):
-
-    agent_clone = copy.deepcopy(agent)
-    # agent_clone.object_encoder.eval()
-
-    optimizer = torch.optim.Adam(
-        [
-            {"params": agent_clone.parameters()},
-        ],
-        lr=lr,
-    )
-
-    for epoch_num in range(num_epochs):
-        optimizer.zero_grad()
-        imgs = batch.to(device)
-
-        img_repr = agent_clone.forward_image_encoder(imgs)
-        text_generation_result = agent_clone.forward_text_generation(
-            imgs,
-            message_length=message_length,
-            freeze_codebook=True,
-            mode="discrete",
-            sampling_temperature=sampling_temperature,
-        )
-        text_repr = agent_clone.forward_text_perception(
-            text_generation_result["discretized"]
-        )
-
-        contrastive_loss = compute_contrastive_loss(
-            text_repr,
-            img_repr,
-            contrastive_loss_temperature=contrastive_loss_temperature,
-            idx=labels,
-        )
-
-        # Total loss with commitment and entropy regularization
         loss = contrastive_loss + text_generation_result["commit_loss"]
         if entropy_factor > 0:
             entropy_loss = (
