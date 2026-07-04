@@ -95,3 +95,14 @@ class PreSavedBatchDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.batches[idx]
+
+class EmbeddingDataset(Dataset):
+    def __init__(self, embeddings, labels, indices):
+        self.embeddings = embeddings[indices]
+        self.labels = labels[indices]
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return self.embeddings[idx], self.labels[idx]
