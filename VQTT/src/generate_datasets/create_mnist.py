@@ -70,7 +70,6 @@ class TwoDigitOpposite(Dataset):
         return two_digit_img, two_digit_label
 
 
-
 def create_mnist1(data_path):
     mnist_path = f"{data_path}/MNIST1"
     train_file = f"{mnist_path}/train.pt"
@@ -83,22 +82,18 @@ def create_mnist1(data_path):
 
     os.makedirs(mnist_path, exist_ok=True)
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+        ]
+    )
 
     train_dataset = datasets.MNIST(
-        root=data_path,
-        train=True,
-        download=True,
-        transform=transform
+        root=data_path, train=True, download=True, transform=transform
     )
 
     test_dataset = datasets.MNIST(
-        root=data_path,
-        train=False,
-        download=True,
-        transform=transform
+        root=data_path, train=False, download=True, transform=transform
     )
 
     singleDigit_train = SingleDigitPadded(train_dataset)
@@ -128,7 +123,6 @@ def create_mnist1(data_path):
             test_file,
         )
         break
-
 
 
 def create_mnist2(data_path):
