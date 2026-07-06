@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
 import random
+import os
 
 
 class SingleDigitPadded(Dataset):
@@ -69,19 +70,35 @@ class TwoDigitOpposite(Dataset):
         return two_digit_img, two_digit_label
 
 
-def create_mnist1():
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-        ]
-    )
+
+def create_mnist1(data_path):
+    mnist_path = f"{data_path}/MNIST1"
+    train_file = f"{mnist_path}/train.pt"
+    test_file = f"{mnist_path}/test.pt"
+
+    # ✅ Skip everything if both already exist
+    if os.path.exists(train_file) and os.path.exists(test_file):
+        print(f"[SKIP] MNIST1 already exists in {mnist_path}")
+        return
+
+    os.makedirs(mnist_path, exist_ok=True)
+
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
 
     train_dataset = datasets.MNIST(
-        root="/home/shared/data", train=True, download=True, transform=transform
+        root=data_path,
+        train=True,
+        download=True,
+        transform=transform
     )
 
     test_dataset = datasets.MNIST(
-        root="/home/shared/data", train=False, download=True, transform=transform
+        root=data_path,
+        train=False,
+        download=True,
+        transform=transform
     )
 
     singleDigit_train = SingleDigitPadded(train_dataset)
@@ -93,32 +110,41 @@ def create_mnist1():
     for images, labels, positions in train_loader:
         torch.save(
             {
-                "images": images,  # Tensor [N, 1, 28, 56]
+                "images": images,
                 "labels": labels,
                 "positions": positions,
             },
-            "/home/shared/data/MNIST2/train.pt",
+            train_file,
         )
-        break  # only one batch needed
+        break
 
     for images, labels, positions in test_loader:
         torch.save(
             {
-                "images": images,  # Tensor [N, 1, 28, 56]
+                "images": images,
                 "labels": labels,
                 "positions": positions,
             },
-            "/home/shared/data/MNIST2/test.pt",
+            test_file,
         )
-        break  # only one batch needed
+        break
 
 
-def create_mnist2():
-    singleDigit = torch.load("/home/shared/data/MNIST1/test.pt")
+
+def create_mnist2(data_path):
+    mnist_path = f"{data_path}/MNIST2"
+    output_file = f"{mnist_path}/test.pt"
+
+    if os.path.exists(output_file):
+        print(f"[SKIP] MNIST2 already exists in {mnist_path}")
+        return
+
+    os.makedirs(mnist_path, exist_ok=True)
+
+    singleDigit = torch.load(f"{data_path}/MNIST1/test.pt")
 
     two_digit_dataset = TwoDigitOpposite(singleDigit)
 
-    # Save the dataset
     loader = DataLoader(two_digit_dataset, batch_size=len(two_digit_dataset))
 
     for images, labels in loader:
@@ -127,6 +153,6 @@ def create_mnist2():
                 "images": images,  # Tensor [N, 1, 28, 56]
                 "labels": labels[0] * 10 + labels[1],
             },
-            "/home/shared/data/MNIST2/test.pt",
+            output_file,
         )
         break
