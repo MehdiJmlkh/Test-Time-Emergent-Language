@@ -21,3 +21,4 @@ coco/
 !coco/coco.ipynb
 
 .env
+data/
