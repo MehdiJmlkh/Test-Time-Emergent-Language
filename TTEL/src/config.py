@@ -1,0 +1,37 @@
+baseline = False
+dataset = "shape1"
+representation_dim = 1024
+batch_size = 32
+number_of_candidates = 32
+vocab_size = 10
+message_length = [3, 4]
+sampling_temperature = 1e-5
+num_pretrain_epochs = 2
+num_dialogue_epochs = 2
+learning_rate_phase1 = 1e-5
+learning_rate_phase2_a = 1e-5
+learning_rate_phase2_b = 1e-5
+agent_a_training_mode = "frozen"
+
+dataset_tt = "shape2"
+message_length_tt = 4
+test_time_mode = "dataset_adaptation"
+num_iterations = 0
+learning_rate_tt = 1e-4
+sampling_temperature_tt = 1e-2
+best_of_n = 100
+num_test_classes = 50
+
+commitment_weight = 0.25
+freeze_codebook = True
+decay = 0.99
+entropy_regularization_factor = 0
+contrastive_loss_temperature = 0.01
+pretrained_checkpoint_a = None
+pretrained_checkpoint_b = None
+dialogued_checkpoint = pretrained_checkpoint_a
+sim = "cosine"
+seed = 1
+gumbel = False
+tau_0 = 0.1
+metric_path = None
