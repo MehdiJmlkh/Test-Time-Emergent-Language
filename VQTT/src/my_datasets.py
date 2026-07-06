@@ -24,7 +24,7 @@ class ShapeWorld(Dataset):
         dtype="agreement",
         name="existential",
         collision_tolerance=0.0,
-        config="/home/shared/ShapeWorld/configs/agreement/existential/oneshape_test.json",
+        config="configs/one_shape.json",
         **kwargs,
     ):
         dataset = shapeworld.Dataset.create(
@@ -71,7 +71,7 @@ class COCO(Dataset):
         return self.embeddings[index], self.path[index]
 
 
-def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
+def generate_shape(data_path, n=20000, train_split=0.8, val_split=0.1, test_split=0.1):
     def save_dataset(dataset, path):
         os.makedirs(path, exist_ok=True)
         data = []
@@ -83,13 +83,13 @@ def generate_shape(n=10000, train_split=0.8, val_split=0.1, test_split=0.1):
     train_dataset = ShapeWorld(n=math.floor(n * train_split), mode="train")
     val_dataset = ShapeWorld(n=math.floor(n * val_split), mode="validation")
     test_dataset = ShapeWorld(n=math.floor(n * test_split), mode="test")
-    
-    load_dotenv()
-    DATA_PATH = os.getenv("DATA_PATH")
+    test_dataset_two_shape = ShapeWorld(n=math.floor(n * test_split), mode="test", config="configs/two_shape.json")
 
-    save_dataset(train_dataset, f"{DATA_PATH}/shape/train")
-    save_dataset(val_dataset, f"{DATA_PATH}/shape/val")
-    save_dataset(test_dataset, f"{DATA_PATH}/shape/test")
+
+    save_dataset(train_dataset, f"{data_path}/shape/train")
+    save_dataset(val_dataset, f"{data_path}/shape/val")
+    save_dataset(test_dataset, f"{data_path}/shape/test/one_shape")
+    save_dataset(test_dataset_two_shape, f"{data_path}/shape/test/two_shape")
 
 
 class PreSavedBatchDataset(Dataset):
