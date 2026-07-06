@@ -1,7 +1,0 @@
-{
-    "type": "classification",
-    "name": "shape",
-    "multi_class": true,
-    "count_class": false,
-    "train_entity_counts": [2]
-}
