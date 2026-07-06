@@ -56,12 +56,10 @@ class MNIST(Dataset):
 
 
 class COCO(Dataset):
-    def __init__(self, mode="train"):
-        load_dotenv()
-        DATA_PATH = os.getenv("DATA_PATH")
+    def __init__(self, data_path="../data", mode="train"):
 
         data = torch.load(
-            f"{DATA_PATH}/coco/coco_dino_{mode}.pt", map_location="cpu"
+            f"{data_path}/coco/coco_dino_{mode}.pt", map_location="cpu"
         )
         self.embeddings = data["embeddings"]
         self.path = data["paths"]
