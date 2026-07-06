@@ -3,7 +3,7 @@ import torchvision.transforms as transforms
 import numpy as np
 import os
 import torch
-import shapeworld
+import shapeworld # type: ignore
 from PIL import Image
 import math
 import os

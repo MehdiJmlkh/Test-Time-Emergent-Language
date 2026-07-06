@@ -1,6 +1,6 @@
 baseline = False
-dataset = "coco"
-representation_dim = 2048
+dataset = "shape1"
+representation_dim = 1024
 batch_size = 32
 number_of_candidates = 32
 vocab_size = 10
@@ -13,7 +13,7 @@ learning_rate_phase2_a = 1e-5
 learning_rate_phase2_b = 1e-5
 agent_a_training_mode = "frozen"
 
-dataset_tt = "coco_complex"
+dataset_tt = "shape2"
 message_length_tt = 4
 test_time_mode = "dataset_adaptation"
 num_iterations = 0
