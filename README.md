@@ -3,7 +3,7 @@
 Clone the repository and move into the project directory:
 
 ```bash
-git clone https://github.com/MehdiJmlkh/Test-Time-Emrgent-Language.git
+git clone https://github.com/MehdiJmlkh/Test-Time-Emergent-Language.git
 cd TTEL
 ```
 ### 2. Define experiment configurations
