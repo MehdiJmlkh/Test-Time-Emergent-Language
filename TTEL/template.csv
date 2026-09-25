@@ -250,3 +250,14 @@ False,False,imagenet,2048,32,10,[3],3,50,50,1e-4,1e-4,1e-4,frozen,imagenet,datas
 False,False,imagenet,2048,32,10,[3],3,50,50,1e-4,1e-4,1e-4,frozen,imagenet,dataset_adaptation,0,1e-4,1e-2,10,32,50,0.25,1e-5,0.1,True,0.99,0,0.01,cosine,20260528_0440_bs32_vocab10_repr2048_msg_len3_msg_len_tt3_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand32_contr0.01_seed2,None,pretrained_checkpoint_a,None,2
 False,False,imagenet,2048,32,10,[3],3,50,50,1e-4,1e-4,1e-4,frozen,imagenet,dataset_adaptation,0,1e-4,1e-2,10,32,50,0.25,1e-5,0.1,True,0.99,0,0.01,cosine,20260528_0454_bs32_vocab10_repr2048_msg_len3_msg_len_tt3_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand32_contr0.01_seed3,None,pretrained_checkpoint_a,None,3
 ---
+
+
+
+True,True,genome,2048,32,10,[2 3 4],4,50,100,1e-5,1e-5,1e-5,frozen,genome_complex,dataset_adaptation,0,1e-5,1e-2,10,100,50,0.25,1e-5,0.1,True,0.99,0,0.01,cosine,None,None,20260925_0059_bs32_vocab10_repr2048_msg_len4_msg_len_tt4_lr1_1e-05_lr2a_1e-05_lr2b_1e-05_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1,None,1
+True,True,genome,2048,32,10,[2 3 4],4,50,100,1e-5,1e-5,1e-5,frozen,genome_complex,dataset_adaptation,0,1e-5,1e-2,10,100,50,0.25,1e-5,0.1,True,0.99,0,0.01,cosine,None,None,20260925_0321_bs32_vocab10_repr2048_msg_len4_msg_len_tt4_lr1_1e-05_lr2a_1e-05_lr2b_1e-05_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed2,None,2
+True,True,genome,2048,32,10,[2 3 4],4,50,100,1e-5,1e-5,1e-5,frozen,genome_complex,dataset_adaptation,0,1e-5,1e-2,10,100,50,0.25,1e-5,0.1,True,0.99,0,0.01,cosine,None,None,20260925_0556_bs32_vocab10_repr2048_msg_len4_msg_len_tt4_lr1_1e-05_lr2a_1e-05_lr2b_1e-05_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed3,None,3
+
+
+False,False,genome,2048,32,10,[2 3 4],4,50,50,1e-4,1e-4,1e-4,frozen,genome_complex,dataset_adaptation,0,1e-5,1e-2,10,100,50,0.25,1e-5,0.1,True,0.99,0,0.01,cosine,20260925_0159_bs32_vocab10_repr2048_msg_len4_msg_len_tt4_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed1,None,pretrained_checkpoint_a,None,1
+False,False,genome,2048,32,10,[2 3 4],4,50,50,1e-4,1e-4,1e-4,frozen,genome_complex,dataset_adaptation,0,1e-5,1e-2,10,100,50,0.25,1e-5,0.1,True,0.99,0,0.01,cosine,20260925_0434_bs32_vocab10_repr2048_msg_len4_msg_len_tt4_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed2,None,pretrained_checkpoint_a,None,2
+False,False,genome,2048,32,10,[2 3 4],4,50,50,1e-4,1e-4,1e-4,frozen,genome_complex,dataset_adaptation,0,1e-5,1e-2,10,100,50,0.25,1e-5,0.1,True,0.99,0,0.01,cosine,20260925_0709_bs32_vocab10_repr2048_msg_len4_msg_len_tt4_lr1_0.0001_lr2a_0.0001_lr2b_0.0001_decay0.99_modefrozen_temp1e-05_ent0_cand100_contr0.01_seed3,None,pretrained_checkpoint_a,None,3
