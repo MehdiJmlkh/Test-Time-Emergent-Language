@@ -5,14 +5,12 @@ import os
 import torch
 import shapeworld
 from PIL import Image
-import math
 import os
-import pickle
 from torch.utils.data import Dataset
 import torch
 import torch.nn.functional as F
 from itertools import product
-from dotenv import load_dotenv
+from pathlib import Path
 
 
 class MNIST(Dataset):
@@ -61,3 +59,30 @@ class EmbeddingDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.embeddings[idx], self.labels[idx]
+
+
+class VisualGenome(Dataset):
+
+    def __init__(
+        self,
+        split="id",
+        data_dir="~/genome",
+    ):
+        DATA_DIR = Path.home() / "genome"
+
+        self.data_dir = Path(data_dir).expanduser()
+        self.split = split
+
+        data = torch.load(
+            DATA_DIR / f"{split}_representations.pt",
+            weights_only=False,
+        )
+
+        self.image_ids = data["image_ids"]
+        self.representations = data["representations"]
+
+    def __len__(self):
+        return len(self.representations)
+
+    def __getitem__(self, idx):
+        return self.representations[idx], self.image_ids[idx]
