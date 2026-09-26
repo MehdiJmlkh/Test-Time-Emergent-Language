@@ -3,7 +3,6 @@ import torchvision.transforms as transforms
 import numpy as np
 import os
 import torch
-import shapeworld
 from PIL import Image
 import os
 from torch.utils.data import Dataset
