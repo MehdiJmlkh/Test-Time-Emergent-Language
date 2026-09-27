@@ -56,3 +56,7 @@ done
 
 rm -rf "$CONFIG_DIR"
 rm -rf "$OUT_DIR"
+
+git add .
+git commit -m "Save all experiment results"
+git push
