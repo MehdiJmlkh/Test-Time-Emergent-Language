@@ -37,6 +37,20 @@ class COCO(Dataset):
         return self.embeddings[index], self.path[index]
 
 
+class Genome(Dataset):
+    def __init__(self, data_path="../data", mode="train"):
+
+        data = torch.load(f"{data_path}/genome/genome_{mode}.pt", map_location="cpu")
+        self.embeddings = data["embeddings"]
+        self.path = data["paths"]
+
+    def __len__(self):
+        return len(self.embeddings)
+
+    def __getitem__(self, index):
+        return self.embeddings[index], self.path[index]
+
+
 class PreSavedBatchDataset(Dataset):
     def __init__(self, batches):
         self.batches = batches
